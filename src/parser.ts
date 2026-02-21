@@ -7,7 +7,7 @@ import { parseYaml, stringifyYaml } from 'obsidian';
 export class MarkdownParser {
     static parse(markdown: string): KanbanBoard {
         const tree: Root = fromMarkdown(markdown);
-        
+
         const board: KanbanBoard = {
             title: '',
             lanes: [],
@@ -50,7 +50,7 @@ export class MarkdownParser {
             if (node.type === 'list' && currentLane) {
                 for (const listItem of node.children) {
                     if (listItem.type === 'listItem') {
-                        currentLane.cards.push(this.parseCard(listItem));
+                        currentLane.cards.push(this.parseCard(listItem, markdown));
                     }
                 }
             }
@@ -69,16 +69,46 @@ export class MarkdownParser {
         return board;
     }
 
-    private static parseCard(listItem: ListItem): KanbanCard {
-        // Just get the text content, ignore task markers if they exist
-        let content = toString(listItem);
-        
-        // If the content still has [ ] or [x] (e.g. from existing files), strip it
+    private static parseCard(listItem: ListItem, rawMarkdown: string): KanbanCard {
+        // Extract the exact substring from the raw markdown using position info
+        let content = '';
+        if (listItem.position && listItem.position.start && listItem.position.end) {
+            content = rawMarkdown.substring(listItem.position.start.offset || 0, listItem.position.end.offset || 0);
+        } else {
+            content = toString(listItem);
+        }
+
+        // Strip the leading list marker (e.g., "- ", "* ", "1. ", or "- [ ] ")
+        content = content.replace(/^[-*+]\s+/, '');
+        content = content.replace(/^\d+\.\s+/, '');
         content = content.replace(/^\[[ xX/]\]\s*/, '');
+
+        // Re-align indentation for inner elements
+        const lines = content.split('\n');
+        if (lines.length > 1) {
+            // Find the minimum indentation of the subsequent lines
+            let minIndent = null;
+            for (let i = 1; i < lines.length; i++) {
+                if (lines[i].trim() === '') continue;
+                const match = lines[i].match(/^\s+/);
+                const indent = match ? match[0].length : 0;
+                if (minIndent === null || indent < minIndent) {
+                    minIndent = indent;
+                }
+            }
+            if (minIndent !== null && minIndent > 0) {
+                for (let i = 1; i < lines.length; i++) {
+                    if (lines[i].length >= minIndent) {
+                        lines[i] = lines[i].substring(minIndent);
+                    }
+                }
+            }
+            content = lines.join('\n');
+        }
 
         return {
             id: Math.random().toString(36).substring(2, 11),
-            content
+            content: content.trimEnd()
         };
     }
 
@@ -91,7 +121,7 @@ export class MarkdownParser {
         }
         markdown += stringifyYaml(yaml);
         markdown += '---\n\n';
-        
+
         if (board.title) {
             markdown += `# ${board.title}\n\n`;
         }
@@ -99,7 +129,15 @@ export class MarkdownParser {
         for (const lane of board.lanes) {
             markdown += `## ${lane.title}\n\n`;
             for (const card of lane.cards) {
-                markdown += `- ${card.content}\n`;
+                const cardLines = card.content.split('\n');
+                if (cardLines.length === 1) {
+                    markdown += `- ${cardLines[0]}\n`;
+                } else {
+                    markdown += `- ${cardLines[0]}\n`;
+                    for (let i = 1; i < cardLines.length; i++) {
+                        markdown += `  ${cardLines[i]}\n`;
+                    }
+                }
             }
             markdown += '\n';
         }
