@@ -104,7 +104,6 @@ export class KanbanView extends TextFileView {
             });
         }
 
-        // Settings button in header
         const settingsBtn = headerEl.createDiv({ cls: 'kanban-settings-btn', text: '⚙' });
         settingsBtn.addEventListener('click', () => {
             new BoardSettingsModal(this.app, this.board!, (newBoard) => {
@@ -118,6 +117,31 @@ export class KanbanView extends TextFileView {
             const laneEl = lanesContainer.createDiv({ cls: 'kanban-lane' });
             laneEl.dataset.laneId = lane.id;
             
+            // Drag and drop listeners on the lane element itself
+            laneEl.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                laneEl.addClass('kanban-lane-drag-over');
+            });
+
+            laneEl.addEventListener('dragleave', () => {
+                laneEl.removeClass('kanban-lane-drag-over');
+            });
+
+            laneEl.addEventListener('drop', (e) => {
+                e.preventDefault();
+                laneEl.removeClass('kanban-lane-drag-over');
+                const cardId = e.dataTransfer?.getData('text/plain');
+                if (cardId && this.board) {
+                    const cardsContainer = laneEl.querySelector('.kanban-cards') as HTMLElement;
+                    const afterElement = this.getDragAfterElement(cardsContainer, e.clientY);
+                    const index = afterElement == null 
+                        ? lane.cards.length 
+                        : parseInt(afterElement.dataset.index || "0");
+                    
+                    this.updateBoard(moveCard({ ...this.board }, cardId, lane.id, index));
+                }
+            });
+
             const laneHeader = laneEl.createDiv({ cls: 'kanban-lane-header' });
             
             if (this.editingLaneId === lane.id) {
@@ -148,7 +172,6 @@ export class KanbanView extends TextFileView {
                     this.render();
                 });
 
-                // Lane menu
                 const menuBtn = laneHeader.createDiv({ cls: 'kanban-lane-menu-btn', text: '⋮' });
                 menuBtn.addEventListener('click', (e) => {
                     const menu = new Menu();
@@ -178,29 +201,6 @@ export class KanbanView extends TextFileView {
 
             const cardsContainer = laneEl.createDiv({ cls: 'kanban-cards' });
             
-            cardsContainer.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                cardsContainer.addClass('kanban-lane-drag-over');
-            });
-
-            cardsContainer.addEventListener('dragleave', () => {
-                cardsContainer.removeClass('kanban-lane-drag-over');
-            });
-
-            cardsContainer.addEventListener('drop', (e) => {
-                e.preventDefault();
-                cardsContainer.removeClass('kanban-lane-drag-over');
-                const cardId = e.dataTransfer?.getData('text/plain');
-                if (cardId && this.board) {
-                    const afterElement = this.getDragAfterElement(cardsContainer, e.clientY);
-                    const index = afterElement == null 
-                        ? lane.cards.length 
-                        : parseInt(afterElement.dataset.index || "0");
-                    
-                    this.updateBoard(moveCard({ ...this.board }, cardId, lane.id, index));
-                }
-            });
-
             lane.cards.forEach((card, index) => {
                 const isEditing = this.editingCardId === card.id;
                 const cardEl = cardsContainer.createDiv({ cls: `kanban-card ${isEditing ? 'kanban-card-editing' : ''} ${card.completed ? 'is-completed' : ''}` });
@@ -330,7 +330,6 @@ class BoardSettingsModal extends Modal {
                     .onChange((value) => {
                         const newTitles = value.split('\n').filter(t => t.trim() !== '');
                         
-                        // Merge logic: keep existing cards, add new lanes, remove missing lanes (if empty)
                         const currentLanes = [...this.board.lanes];
                         const updatedLanes: KanbanLane[] = [];
 
@@ -347,15 +346,11 @@ class BoardSettingsModal extends Modal {
                             }
                         });
 
-                        // Check if any lanes with cards were removed
                         const removedWithCards = currentLanes.filter(l => 
                             !newTitles.includes(l.title) && l.cards.length > 0
                         );
 
                         if (removedWithCards.length > 0) {
-                            // If user tries to remove a lane with cards via settings, 
-                            // we should probably prevent it or warn them.
-                            // For simplicity, let's keep them at the end.
                             removedWithCards.forEach(l => updatedLanes.push(l));
                         }
 

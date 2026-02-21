@@ -90,6 +90,8 @@
     gap: 8px;
     overflow-y: auto;
     padding: 4px;
+    flex-grow: 1;
+    min-height: 100px;
 }
 
 .kanban-card {
