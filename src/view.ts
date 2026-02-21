@@ -5,13 +5,15 @@ import { MarkdownParser } from './parser';
 export const KANBAN_VIEW_TYPE = 'kanban-view';
 
 export class KanbanView extends TextFileView {
+    plugin: any; // We'll use any or import KanbanPlugin, let's use any for now to avoid circular import issues if any, or better, import it
     board: KanbanBoard | null = null;
     editingCardId: string | null = null;
     editingLaneId: string | null = null;
     isEditingTitle: boolean = false;
 
-    constructor(leaf: WorkspaceLeaf) {
+    constructor(leaf: WorkspaceLeaf, plugin: any) {
         super(leaf);
+        this.plugin = plugin;
     }
 
     getViewType() {
@@ -49,7 +51,7 @@ export class KanbanView extends TextFileView {
         this.render();
     }
 
-    async onOpen() {}
+    async onOpen() { }
 
     private updateBoard(newBoard: KanbanBoard) {
         this.board = newBoard;
@@ -68,9 +70,9 @@ export class KanbanView extends TextFileView {
         }
 
         const boardEl = container.createDiv({ cls: 'kanban-board' });
-        
+
         const headerEl = boardEl.createDiv({ cls: 'kanban-header' });
-        
+
         const titleWrapper = headerEl.createDiv({ cls: 'kanban-title-wrapper' });
         if (this.isEditingTitle) {
             const titleInput = titleWrapper.createEl('input', {
@@ -78,7 +80,7 @@ export class KanbanView extends TextFileView {
                 value: this.board.title || this.file?.basename || ""
             });
             titleInput.focus();
-            
+
             const saveTitle = () => {
                 this.board!.title = titleInput.value;
                 this.isEditingTitle = false;
@@ -94,9 +96,9 @@ export class KanbanView extends TextFileView {
                 }
             });
         } else {
-            const titleEl = titleWrapper.createEl('h1', { 
-                text: this.board.title || this.file?.basename || "Untitled Board", 
-                cls: 'kanban-title' 
+            const titleEl = titleWrapper.createEl('h1', {
+                text: this.board.title || this.file?.basename || "Untitled Board",
+                cls: 'kanban-title'
             });
             titleEl.addEventListener('click', () => {
                 this.isEditingTitle = true;
@@ -116,7 +118,7 @@ export class KanbanView extends TextFileView {
         for (const lane of this.board.lanes) {
             const laneEl = lanesContainer.createDiv({ cls: 'kanban-lane' });
             laneEl.dataset.laneId = lane.id;
-            
+
             // Drag and drop listeners on the lane element itself
             laneEl.addEventListener('dragover', (e) => {
                 e.preventDefault();
@@ -134,23 +136,23 @@ export class KanbanView extends TextFileView {
                 if (cardId && this.board) {
                     const cardsContainer = laneEl.querySelector('.kanban-cards') as HTMLElement;
                     const afterElement = this.getDragAfterElement(cardsContainer, e.clientY);
-                    const index = afterElement == null 
-                        ? lane.cards.length 
+                    const index = afterElement == null
+                        ? lane.cards.length
                         : parseInt(afterElement.dataset.index || "0");
-                    
+
                     this.updateBoard(moveCard({ ...this.board }, cardId, lane.id, index));
                 }
             });
 
             const laneHeader = laneEl.createDiv({ cls: 'kanban-lane-header' });
-            
+
             if (this.editingLaneId === lane.id) {
                 const laneInput = laneHeader.createEl('input', {
                     cls: 'kanban-lane-title-input',
                     value: lane.title
                 });
                 laneInput.focus();
-                
+
                 const saveLane = () => {
                     lane.title = laneInput.value;
                     this.editingLaneId = null;
@@ -175,7 +177,7 @@ export class KanbanView extends TextFileView {
                 const menuBtn = laneHeader.createDiv({ cls: 'kanban-lane-menu-btn', text: '⋮' });
                 menuBtn.addEventListener('click', (e) => {
                     const menu = new Menu();
-                    menu.addItem((item) => 
+                    menu.addItem((item) =>
                         item.setTitle("Delete lane")
                             .setIcon("trash")
                             .setDisabled(lane.cards.length > 0)
@@ -196,11 +198,19 @@ export class KanbanView extends TextFileView {
                     menu.showAtMouseEvent(e);
                 });
             }
-            
-            laneHeader.createDiv({ text: lane.cards.length.toString(), cls: 'kanban-lane-count' });
+
+            const wipMatch = lane.title.match(/\((\d+)\)$/);
+            const wipLimit = wipMatch && wipMatch[1] ? parseInt(wipMatch[1], 10) : null;
+            const isOverLimit = wipLimit !== null && lane.cards.length > wipLimit;
+
+            const countEl = laneHeader.createDiv({ cls: 'kanban-lane-count' });
+            countEl.createSpan({ text: lane.cards.length.toString(), cls: isOverLimit ? 'kanban-wip-over' : '' });
+            if (wipLimit !== null) {
+                countEl.createSpan({ text: ` / ${wipLimit}` });
+            }
 
             const cardsContainer = laneEl.createDiv({ cls: 'kanban-cards' });
-            
+
             const isDoneLane = lane.title.toLowerCase() === 'done';
 
             lane.cards.forEach((card, index) => {
@@ -235,9 +245,9 @@ export class KanbanView extends TextFileView {
                         cls: 'kanban-card-textarea',
                         text: card.content
                     });
-                    
+
                     textarea.focus();
-                    
+
                     const save = () => {
                         if (this.board) {
                             const newBoard = updateCard({ ...this.board }, card.id, textarea.value);
@@ -248,7 +258,11 @@ export class KanbanView extends TextFileView {
 
                     textarea.addEventListener('blur', save);
                     textarea.addEventListener('keydown', (e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
+                        const trigger = this.plugin.settings.newLineTrigger || 'shift-enter';
+                        const isNewLine = trigger === 'shift-enter' ? (e.key === 'Enter' && e.shiftKey) : (e.key === 'Enter' && !e.shiftKey);
+                        const isSave = trigger === 'shift-enter' ? (e.key === 'Enter' && !e.shiftKey) : (e.key === 'Enter' && e.shiftKey);
+
+                        if (isSave) {
                             e.preventDefault();
                             textarea.blur();
                         } else if (e.key === 'Escape') {
@@ -268,7 +282,11 @@ export class KanbanView extends TextFileView {
                         id: Math.random().toString(36).substring(2, 11),
                         content: ""
                     };
-                    lane.cards.push(newCard);
+                    if (this.plugin.settings.newCardInsertionMethod === 'prepend') {
+                        lane.cards.unshift(newCard);
+                    } else {
+                        lane.cards.push(newCard);
+                    }
                     this.editingCardId = newCard.id;
                     this.updateBoard({ ...this.board });
                 }
@@ -314,7 +332,7 @@ class BoardSettingsModal extends Modal {
                     .setValue(this.board.lanes.map(l => l.title).join('\n'))
                     .onChange((value) => {
                         const newTitles = value.split('\n').filter(t => t.trim() !== '');
-                        
+
                         const currentLanes = [...this.board.lanes];
                         const updatedLanes: KanbanLane[] = [];
 
@@ -331,7 +349,7 @@ class BoardSettingsModal extends Modal {
                             }
                         });
 
-                        const removedWithCards = currentLanes.filter(l => 
+                        const removedWithCards = currentLanes.filter(l =>
                             !newTitles.includes(l.title) && l.cards.length > 0
                         );
 

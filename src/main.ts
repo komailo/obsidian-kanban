@@ -11,7 +11,7 @@ export default class KanbanPlugin extends Plugin {
 
         this.registerView(
             KANBAN_VIEW_TYPE,
-            (leaf) => new KanbanView(leaf)
+            (leaf) => new KanbanView(leaf, this)
         );
 
         this.registerExtensions(['kanban'], KANBAN_VIEW_TYPE);
@@ -45,13 +45,13 @@ export default class KanbanPlugin extends Plugin {
 
     async createNewBoard() {
         const { vault, workspace } = this.app;
-        
+
         // Create a new file with .kanban extension
         const fileName = `Untitled Kanban ${Date.now()}.kanban`;
         const content = "# New Board\n\n## Backlog\n\n## Todo\n\n## In Progress\n\n## Done\n";
-        
+
         const file = await vault.create(fileName, content);
-        
+
         // Open the file
         const leaf = workspace.getLeaf(true);
         await leaf.openFile(file);
