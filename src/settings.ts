@@ -12,6 +12,9 @@ export interface KanbanSettings {
 	dateFormat: string;
 	linkDateToDailyNote: boolean;
 	showRelativeDate: boolean;
+	newNoteFolder: string;
+	newNoteTemplate: string;
+	showLinkedPageMetadata: boolean;
 }
 
 export const DEFAULT_SETTINGS: KanbanSettings = {
@@ -25,6 +28,9 @@ export const DEFAULT_SETTINGS: KanbanSettings = {
 	dateFormat: 'YYYY-MM-DD',
 	linkDateToDailyNote: false,
 	showRelativeDate: true,
+	newNoteFolder: '',
+	newNoteTemplate: '',
+	showLinkedPageMetadata: false,
 }
 
 export class KanbanSettingTab extends PluginSettingTab {
@@ -147,6 +153,36 @@ export class KanbanSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.showRelativeDate)
 				.onChange(async (value) => {
 					this.plugin.settings.showRelativeDate = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Note template')
+			.setDesc('This template will be used when creating new notes from Kanban cards (path to file)')
+			.addText(text => text
+				.setValue(this.plugin.settings.newNoteTemplate)
+				.onChange(async (value) => {
+					this.plugin.settings.newNoteTemplate = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Note folder')
+			.setDesc('Notes created from cards will be placed here. If blank, placed in vault root.')
+			.addText(text => text
+				.setValue(this.plugin.settings.newNoteFolder)
+				.onChange(async (value) => {
+					this.plugin.settings.newNoteFolder = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Show linked page metadata')
+			.setDesc('Display frontmatter metadata from linked pages on the card')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.showLinkedPageMetadata)
+				.onChange(async (value) => {
+					this.plugin.settings.showLinkedPageMetadata = value;
 					await this.plugin.saveSettings();
 				}));
 	}

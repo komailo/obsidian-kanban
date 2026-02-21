@@ -238,6 +238,32 @@ export class KanbanView extends TextFileView {
                         cardEl.removeClass('kanban-card-dragging');
                     });
 
+                    cardEl.addEventListener('contextmenu', (e) => {
+                        e.preventDefault();
+                        const menu = new Menu();
+
+                        menu.addItem((item) => {
+                            item.setTitle("Create note from card")
+                                .setIcon("document")
+                                .onClick(async () => {
+                                    await this.createNoteFromCard(card, lane);
+                                });
+                        });
+
+                        menu.addItem((item) => {
+                            item.setTitle("Delete card")
+                                .setIcon("trash")
+                                .onClick(() => {
+                                    if (this.board) {
+                                        lane.cards = lane.cards.filter(c => c.id !== card.id);
+                                        this.updateBoard({ ...this.board });
+                                    }
+                                });
+                        });
+
+                        menu.showAtMouseEvent(e);
+                    });
+
                     cardEl.addEventListener('click', () => {
                         this.editingCardId = card.id;
                         this.render();
@@ -365,6 +391,28 @@ export class KanbanView extends TextFileView {
                         const contentContainer = cardEl.createDiv({ cls: 'kanban-card-content' });
                         MarkdownRenderer.renderMarkdown(displayContent, contentContainer, this.file?.path || "", this);
                     }
+
+                    if (this.plugin.settings.showLinkedPageMetadata) {
+                        const linkMatch = displayContent.match(/\[\[([^\]|]+)(?:\|.*)?\]\]/);
+                        if (linkMatch) {
+                            const linkText = linkMatch[1] as string;
+                            const destFile = this.app.metadataCache.getFirstLinkpathDest(linkText, this.file?.path || "");
+                            if (destFile) {
+                                const cache = this.app.metadataCache.getFileCache(destFile);
+                                if (cache && cache.frontmatter) {
+                                    const metaEntries = Object.entries(cache.frontmatter)
+                                        .filter(([k, v]) => k !== 'position' && v !== null && v !== undefined);
+
+                                    if (metaEntries.length > 0) {
+                                        const metaContainer = cardEl.createDiv({ cls: 'kanban-card-metadata', attr: { style: 'font-size: 0.8em; opacity: 0.7; margin-top: 5px; background: var(--background-secondary-alt); padding: 4px; border-radius: 4px;' } });
+                                        metaEntries.forEach(([k, v]) => {
+                                            metaContainer.createDiv({ text: `${k}: ${v}` });
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             });
 
@@ -399,6 +447,62 @@ export class KanbanView extends TextFileView {
                 return closest;
             }
         }, { offset: Number.NEGATIVE_INFINITY, element: null }).element;
+    }
+
+    private async createNoteFromCard(card: any, lane: KanbanLane) {
+        let noteTitle = card.content.split('\n')[0].replace(/[\\/:"*?<>|#]/g, '').trim() || `Card ${card.id}`;
+        if (noteTitle.length > 50) noteTitle = noteTitle.substring(0, 50).trim();
+
+        const folderPath = this.plugin.settings.newNoteFolder || "";
+        const templatePath = this.plugin.settings.newNoteTemplate || "";
+
+        let folder = this.app.vault.getAbstractFileByPath(folderPath || '/');
+        if (!folder && folderPath) {
+            try {
+                folder = await this.app.vault.createFolder(folderPath);
+            } catch (e) {
+                new Notice("Failed to create folder: " + folderPath);
+                return;
+            }
+        }
+
+        const fullPath = `${folderPath ? folderPath + '/' : ''}${noteTitle}.md`;
+
+        // check if exists
+        let file = this.app.vault.getAbstractFileByPath(fullPath);
+        if (file) {
+            new Notice("File already exists: " + fullPath);
+            this.app.workspace.getLeaf(false).openFile(file as any);
+            return;
+        }
+
+        let content = "";
+        if (templatePath) {
+            try {
+                const templateFile = this.app.vault.getAbstractFileByPath(templatePath);
+                if (templateFile) {
+                    content = await this.app.vault.read(templateFile as any);
+                }
+            } catch (e) {
+                new Notice("Failed to read template file: " + templatePath);
+            }
+        } else {
+            content = `# ${noteTitle}\n\n`;
+        }
+
+        try {
+            file = await this.app.vault.create(fullPath, content);
+            new Notice(`Created note: ${noteTitle}`);
+
+            if (this.board) {
+                const newContent = `[[${noteTitle}]]`;
+                this.updateBoard(updateCard({ ...this.board }, card.id, newContent));
+            }
+
+            this.app.workspace.getLeaf(false).openFile(file as any);
+        } catch (e: any) {
+            new Notice("Failed to create note: " + e.message);
+        }
     }
 }
 
