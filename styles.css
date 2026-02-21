@@ -256,7 +256,15 @@
     gap: 8px;
 }
 
+.kanban-card-has-checkbox > span > p:first-child {
+    margin-top: 0;
+}
+
 .kanban-card-checkbox {
-    margin-top: 3px;
+    margin-top: 4px;
     cursor: pointer;
+}
+
+.kanban-card-has-checkbox > span > p:last-child {
+    margin-bottom: 0;
 }
