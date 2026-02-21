@@ -1,4 +1,4 @@
-import { TextFileView, WorkspaceLeaf, Menu, Modal, App, Setting, Notice } from 'obsidian';
+import { TextFileView, WorkspaceLeaf, Menu, Modal, App, Setting, Notice, MarkdownRenderer } from 'obsidian';
 import { KanbanBoard, moveCard, updateCard, KanbanLane } from './types';
 import { MarkdownParser } from './parser';
 
@@ -117,6 +117,10 @@ export class KanbanView extends TextFileView {
 
         for (const lane of this.board.lanes) {
             const laneEl = lanesContainer.createDiv({ cls: 'kanban-lane' });
+            if (this.plugin.settings.laneWidth) {
+                laneEl.style.width = `${this.plugin.settings.laneWidth}px`;
+                laneEl.style.minWidth = `${this.plugin.settings.laneWidth}px`;
+            }
             laneEl.dataset.laneId = lane.id;
 
             // Drag and drop listeners on the lane element itself
@@ -271,7 +275,41 @@ export class KanbanView extends TextFileView {
                         }
                     });
                 } else {
-                    cardEl.createDiv({ text: card.content, cls: 'kanban-card-content' });
+                    let displayContent = card.content;
+
+                    if (this.plugin.settings.hideTagsInTitle) {
+                        displayContent = displayContent.replace(/#[^\s#]+/g, '').replace(/\s{2,}/g, ' ').trim();
+                    }
+
+                    if (this.plugin.settings.showCheckboxes) {
+                        const checkboxMatch = displayContent.match(/^- \[(x| )\]\s+([\s\S]*)/i);
+                        if (checkboxMatch && checkboxMatch[1] && checkboxMatch[2] !== undefined) {
+                            const isChecked = checkboxMatch[1].toLowerCase() === 'x';
+                            const text = checkboxMatch[2];
+
+                            const contentContainerEl = cardEl.createDiv({ cls: 'kanban-card-content kanban-card-has-checkbox' });
+                            const checkboxEl = contentContainerEl.createEl('input', { type: 'checkbox', cls: 'kanban-card-checkbox' });
+                            checkboxEl.checked = isChecked;
+
+                            checkboxEl.addEventListener('change', (e) => {
+                                e.stopPropagation();
+                                const newMark = checkboxEl.checked ? 'x' : ' ';
+                                const newContent = card.content.replace(/^- \[(x| )\]/i, `- [${newMark}]`);
+                                if (this.board) {
+                                    this.updateBoard(updateCard({ ...this.board }, card.id, newContent));
+                                }
+                            });
+
+                            const textSpan = contentContainerEl.createSpan();
+                            MarkdownRenderer.renderMarkdown(text, textSpan, this.file?.path || "", this);
+                        } else {
+                            const contentContainer = cardEl.createDiv({ cls: 'kanban-card-content' });
+                            MarkdownRenderer.renderMarkdown(displayContent, contentContainer, this.file?.path || "", this);
+                        }
+                    } else {
+                        const contentContainer = cardEl.createDiv({ cls: 'kanban-card-content' });
+                        MarkdownRenderer.renderMarkdown(displayContent, contentContainer, this.file?.path || "", this);
+                    }
                 }
             });
 

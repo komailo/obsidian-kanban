@@ -5,12 +5,18 @@ export interface KanbanSettings {
 	defaultLanes: string[];
 	newCardInsertionMethod: 'append' | 'prepend';
 	newLineTrigger: 'enter' | 'shift-enter';
+	showCheckboxes: boolean;
+	hideTagsInTitle: boolean;
+	laneWidth: number;
 }
 
 export const DEFAULT_SETTINGS: KanbanSettings = {
 	defaultLanes: ['Backlog', 'Todo', 'In Progress', 'Done'],
 	newCardInsertionMethod: 'append',
 	newLineTrigger: 'shift-enter',
+	showCheckboxes: true,
+	hideTagsInTitle: false,
+	laneWidth: 272,
 }
 
 export class KanbanSettingTab extends PluginSettingTab {
@@ -60,5 +66,40 @@ export class KanbanSettingTab extends PluginSettingTab {
 					this.plugin.settings.newLineTrigger = value;
 					await this.plugin.saveSettings();
 				}));
+
+		new Setting(containerEl)
+			.setName('Display card checkbox')
+			.setDesc('When toggled, a checkbox will be displayed with each card if it starts with - [ ] or - [x]')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.showCheckboxes)
+				.onChange(async (value) => {
+					this.plugin.settings.showCheckboxes = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Hide tags in card titles')
+			.setDesc('When toggled, tags will be hidden from the card display')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.hideTagsInTitle)
+				.onChange(async (value) => {
+					this.plugin.settings.hideTagsInTitle = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Lane width')
+			.setDesc('Enter a number to set the list width in pixels.')
+			.addText(text => {
+				text.inputEl.type = 'number';
+				text.setValue(this.plugin.settings.laneWidth.toString())
+					.onChange(async (value) => {
+						const width = parseInt(value, 10);
+						if (!isNaN(width)) {
+							this.plugin.settings.laneWidth = width;
+							await this.plugin.saveSettings();
+						}
+					});
+			});
 	}
 }
