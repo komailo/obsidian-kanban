@@ -1,9 +1,10 @@
-import { ItemView, WorkspaceLeaf } from 'obsidian';
+import { TextFileView, WorkspaceLeaf } from 'obsidian';
 import { KanbanBoard, moveCard, updateCard } from './types';
+import { MarkdownParser } from './parser';
 
 export const KANBAN_VIEW_TYPE = 'kanban-view';
 
-export class KanbanView extends ItemView {
+export class KanbanView extends TextFileView {
     board: KanbanBoard | null = null;
     editingCardId: string | null = null;
 
@@ -16,24 +17,42 @@ export class KanbanView extends ItemView {
     }
 
     getDisplayText() {
-        return this.board?.title || 'Kanban Board';
+        return this.file ? this.file.basename : 'Kanban Board';
     }
 
-    async onOpen() {
+    // This is called when the file is loaded into the view
+    setViewData(data: string, clear: boolean) {
+        this.board = MarkdownParser.parse(data);
+        if (clear) {
+            this.editingCardId = null;
+        }
         this.render();
     }
 
-    async onClose() {
-        // Cleanup logic if needed
+    // This is called when Obsidian wants to save the file
+    getViewData() {
+        if (!this.board) return "";
+        return MarkdownParser.stringify(this.board);
     }
 
-    setBoard(board: KanbanBoard) {
-        this.board = board;
+    clear() {
+        this.board = null;
+        this.editingCardId = null;
+    }
+
+    async onOpen() {
+        // TextFileView handles much of the container logic
+    }
+
+    // Helper to update board and request save
+    private updateBoard(newBoard: KanbanBoard) {
+        this.board = newBoard;
+        this.requestSave(); // Triggers Obsidian's save lifecycle which calls getViewData
         this.render();
     }
 
     render() {
-        const container = this.containerEl.children[1] as HTMLElement;
+        const container = this.contentEl;
         container.empty();
         container.addClass('kanban-board-container');
 
@@ -43,14 +62,20 @@ export class KanbanView extends ItemView {
         }
 
         const boardEl = container.createDiv({ cls: 'kanban-board' });
-        boardEl.createEl('h1', { text: this.board.title, cls: 'kanban-title' });
+        
+        // Header section like the screenshot
+        const headerEl = boardEl.createDiv({ cls: 'kanban-header' });
+        headerEl.createEl('h1', { text: this.board.title || this.file?.basename || "Untitled Board", cls: 'kanban-title' });
 
         const lanesContainer = boardEl.createDiv({ cls: 'kanban-lanes' });
 
         for (const lane of this.board.lanes) {
             const laneEl = lanesContainer.createDiv({ cls: 'kanban-lane' });
             laneEl.dataset.laneId = lane.id;
-            laneEl.createDiv({ text: lane.title, cls: 'kanban-lane-title' });
+            
+            const laneHeader = laneEl.createDiv({ cls: 'kanban-lane-header' });
+            laneHeader.createDiv({ text: lane.title, cls: 'kanban-lane-title' });
+            laneHeader.createDiv({ text: lane.cards.length.toString(), cls: 'kanban-lane-count' });
 
             const cardsContainer = laneEl.createDiv({ cls: 'kanban-cards' });
             
@@ -73,14 +98,13 @@ export class KanbanView extends ItemView {
                         ? lane.cards.length 
                         : parseInt(afterElement.dataset.index || "0");
                     
-                    this.board = moveCard(this.board, cardId, lane.id, index);
-                    this.render();
+                    this.updateBoard(moveCard({ ...this.board }, cardId, lane.id, index));
                 }
             });
 
             lane.cards.forEach((card, index) => {
                 const isEditing = this.editingCardId === card.id;
-                const cardEl = cardsContainer.createDiv({ cls: `kanban-card ${isEditing ? 'kanban-card-editing' : ''}` });
+                const cardEl = cardsContainer.createDiv({ cls: `kanban-card ${isEditing ? 'kanban-card-editing' : ''} ${card.completed ? 'is-completed' : ''}` });
                 cardEl.draggable = !isEditing;
                 cardEl.dataset.cardId = card.id;
                 cardEl.dataset.laneId = lane.id;
@@ -113,6 +137,14 @@ export class KanbanView extends ItemView {
                 checkbox.checked = card.completed;
                 checkbox.disabled = isEditing;
                 
+                checkbox.addEventListener('change', (e) => {
+                    e.stopPropagation();
+                    if (this.board) {
+                        card.completed = checkbox.checked;
+                        this.updateBoard({ ...this.board });
+                    }
+                });
+                
                 if (isEditing) {
                     const textarea = cardEl.createEl('textarea', {
                         cls: 'kanban-card-textarea',
@@ -123,9 +155,9 @@ export class KanbanView extends ItemView {
                     
                     const save = () => {
                         if (this.board) {
-                            this.board = updateCard(this.board, card.id, textarea.value);
+                            const newBoard = updateCard({ ...this.board }, card.id, textarea.value);
                             this.editingCardId = null;
-                            this.render();
+                            this.updateBoard(newBoard);
                         }
                     };
 
@@ -141,6 +173,21 @@ export class KanbanView extends ItemView {
                     });
                 } else {
                     cardEl.createDiv({ text: card.content, cls: 'kanban-card-content' });
+                }
+            });
+
+            // Add card button at bottom of lane
+            const addCardBtn = laneEl.createDiv({ cls: 'kanban-add-card', text: '+ Add a card' });
+            addCardBtn.addEventListener('click', () => {
+                if (this.board) {
+                    const newCard = {
+                        id: Math.random().toString(36).substring(2, 11),
+                        content: "",
+                        completed: false
+                    };
+                    lane.cards.push(newCard);
+                    this.editingCardId = newCard.id;
+                    this.updateBoard({ ...this.board });
                 }
             });
         }

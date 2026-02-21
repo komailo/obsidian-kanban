@@ -1,6 +1,5 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, WorkspaceLeaf } from 'obsidian';
+import { Plugin, WorkspaceLeaf, TFile } from 'obsidian';
 import { KanbanView, KANBAN_VIEW_TYPE } from './view';
-import { MarkdownParser } from './parser';
 import { DEFAULT_SETTINGS, KanbanSettings, KanbanSettingTab } from './settings';
 
 export default class KanbanPlugin extends Plugin {
@@ -14,8 +13,10 @@ export default class KanbanPlugin extends Plugin {
             (leaf) => new KanbanView(leaf)
         );
 
-        this.addRibbonIcon('dice', 'Open Kanban Board', () => {
-            this.activateView();
+        this.registerExtensions(['kanban'], KANBAN_VIEW_TYPE);
+
+        this.addRibbonIcon('dice', 'New Kanban Board', async () => {
+            await this.createNewBoard();
         });
 
         this.addCommand({
@@ -26,11 +27,33 @@ export default class KanbanPlugin extends Plugin {
             }
         });
 
+        this.addCommand({
+            id: 'create-new-kanban-board',
+            name: 'Create New Kanban Board',
+            callback: async () => {
+                await this.createNewBoard();
+            }
+        });
+
         this.addSettingTab(new KanbanSettingTab(this.app, this));
     }
 
     onunload() {
-        this.app.workspace.detachLeavesOfType(KANBAN_VIEW_TYPE);
+        // Workspace handles detaching leaves for us usually, but we can be explicit
+    }
+
+    async createNewBoard() {
+        const { vault, workspace } = this.app;
+        
+        // Create a new file with .kanban extension
+        const fileName = `Untitled Kanban ${Date.now()}.kanban`;
+        const content = "# New Board\n\n## Todo\n\n## Done\n";
+        
+        const file = await vault.create(fileName, content);
+        
+        // Open the file
+        const leaf = workspace.getLeaf(true);
+        await leaf.openFile(file);
     }
 
     async activateView() {
@@ -51,26 +74,6 @@ export default class KanbanPlugin extends Plugin {
 
         if (leaf) {
             workspace.revealLeaf(leaf);
-            
-            // For now, let's load some sample data if the view is empty
-            const view = leaf.view as KanbanView;
-            if (view && !view.board) {
-                const sampleMarkdown = `
-# My Project Board
-
-## Todo
-- [ ] Task 1
-- [ ] Task 2
-
-## In Progress
-- [ ] Task 3 (in progress)
-
-## Done
-- [x] Task 4
-`;
-                const board = MarkdownParser.parse(sampleMarkdown);
-                view.setBoard(board);
-            }
         }
     }
 
