@@ -1,7 +1,6 @@
 export interface KanbanCard {
     id: string;
     content: string; // The raw markdown content of the card
-    completed: boolean;
     metadata?: Record<string, any>;
 }
 

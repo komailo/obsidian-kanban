@@ -201,9 +201,11 @@ export class KanbanView extends TextFileView {
 
             const cardsContainer = laneEl.createDiv({ cls: 'kanban-cards' });
             
+            const isDoneLane = lane.title.toLowerCase() === 'done';
+
             lane.cards.forEach((card, index) => {
                 const isEditing = this.editingCardId === card.id;
-                const cardEl = cardsContainer.createDiv({ cls: `kanban-card ${isEditing ? 'kanban-card-editing' : ''} ${card.completed ? 'is-completed' : ''}` });
+                const cardEl = cardsContainer.createDiv({ cls: `kanban-card ${isEditing ? 'kanban-card-editing' : ''} ${isDoneLane ? 'is-completed' : ''}` });
                 cardEl.draggable = !isEditing;
                 cardEl.dataset.cardId = card.id;
                 cardEl.dataset.laneId = lane.id;
@@ -228,22 +230,6 @@ export class KanbanView extends TextFileView {
                     });
                 }
 
-                const checkboxWrapper = cardEl.createDiv({ cls: 'kanban-card-checkbox-wrapper' });
-                const checkbox = checkboxWrapper.createEl('input', { 
-                    type: 'checkbox', 
-                    cls: 'kanban-card-checkbox' 
-                });
-                checkbox.checked = card.completed;
-                checkbox.disabled = isEditing;
-                
-                checkbox.addEventListener('change', (e) => {
-                    e.stopPropagation();
-                    if (this.board) {
-                        card.completed = checkbox.checked;
-                        this.updateBoard({ ...this.board });
-                    }
-                });
-                
                 if (isEditing) {
                     const textarea = cardEl.createEl('textarea', {
                         cls: 'kanban-card-textarea',
@@ -280,8 +266,7 @@ export class KanbanView extends TextFileView {
                 if (this.board) {
                     const newCard = {
                         id: Math.random().toString(36).substring(2, 11),
-                        content: "",
-                        completed: false
+                        content: ""
                     };
                     lane.cards.push(newCard);
                     this.editingCardId = newCard.id;

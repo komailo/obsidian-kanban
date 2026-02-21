@@ -1,6 +1,4 @@
 import { fromMarkdown } from 'mdast-util-from-markdown';
-import { gfmTaskListItemFromMarkdown } from 'mdast-util-gfm-task-list-item';
-import { gfmTaskListItem } from 'micromark-extension-gfm-task-list-item';
 import { Root, ListItem } from 'mdast';
 import { toString } from 'mdast-util-to-string';
 import { KanbanBoard, KanbanLane, KanbanCard } from './types';
@@ -8,10 +6,7 @@ import { parseYaml, stringifyYaml } from 'obsidian';
 
 export class MarkdownParser {
     static parse(markdown: string): KanbanBoard {
-        const tree: Root = fromMarkdown(markdown, {
-            extensions: [gfmTaskListItem()],
-            mdastExtensions: [gfmTaskListItemFromMarkdown()]
-        });
+        const tree: Root = fromMarkdown(markdown);
         
         const board: KanbanBoard = {
             title: '',
@@ -75,13 +70,15 @@ export class MarkdownParser {
     }
 
     private static parseCard(listItem: ListItem): KanbanCard {
-        const completed = listItem.checked === true;
-        const content = toString(listItem);
+        // Just get the text content, ignore task markers if they exist
+        let content = toString(listItem);
+        
+        // If the content still has [ ] or [x] (e.g. from existing files), strip it
+        content = content.replace(/^\[[ xX/]\]\s*/, '');
 
         return {
             id: Math.random().toString(36).substring(2, 11),
-            content,
-            completed
+            content
         };
     }
 
@@ -102,8 +99,7 @@ export class MarkdownParser {
         for (const lane of board.lanes) {
             markdown += `## ${lane.title}\n\n`;
             for (const card of lane.cards) {
-                const checkChar = card.completed ? 'x' : ' ';
-                markdown += `- [${checkChar}] ${card.content}\n`;
+                markdown += `- ${card.content}\n`;
             }
             markdown += '\n';
         }
