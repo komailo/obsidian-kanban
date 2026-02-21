@@ -15,6 +15,8 @@ export interface KanbanSettings {
 	newNoteFolder: string;
 	newNoteTemplate: string;
 	showLinkedPageMetadata: boolean;
+	appendArchiveDate: boolean;
+	archiveDateFormat: string;
 }
 
 export const DEFAULT_SETTINGS: KanbanSettings = {
@@ -31,6 +33,8 @@ export const DEFAULT_SETTINGS: KanbanSettings = {
 	newNoteFolder: '',
 	newNoteTemplate: '',
 	showLinkedPageMetadata: false,
+	appendArchiveDate: false,
+	archiveDateFormat: 'YYYY-MM-DD',
 }
 
 export class KanbanSettingTab extends PluginSettingTab {
@@ -183,6 +187,26 @@ export class KanbanSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.showLinkedPageMetadata)
 				.onChange(async (value) => {
 					this.plugin.settings.showLinkedPageMetadata = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Append date/time to archived cards')
+			.setDesc('When toggled, archiving a card will automatically append the current date/time to the card.')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.appendArchiveDate)
+				.onChange(async (value) => {
+					this.plugin.settings.appendArchiveDate = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Archive date format')
+			.setDesc('Format used when appending dates to archived cards')
+			.addText(text => text
+				.setValue(this.plugin.settings.archiveDateFormat)
+				.onChange(async (value) => {
+					this.plugin.settings.archiveDateFormat = value;
 					await this.plugin.saveSettings();
 				}));
 	}

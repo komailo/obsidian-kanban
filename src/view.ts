@@ -106,6 +106,11 @@ export class KanbanView extends TextFileView {
             });
         }
 
+        const archiveBtn = headerEl.createDiv({ cls: 'kanban-archive-btn', text: '📦', attr: { title: 'View Archive' } });
+        archiveBtn.addEventListener('click', () => {
+            new ArchiveModal(this.app, this.board!).open();
+        });
+
         const settingsBtn = headerEl.createDiv({ cls: 'kanban-settings-btn', text: '⚙' });
         settingsBtn.addEventListener('click', () => {
             new BoardSettingsModal(this.app, this.board!, (newBoard) => {
@@ -116,6 +121,8 @@ export class KanbanView extends TextFileView {
         const lanesContainer = boardEl.createDiv({ cls: 'kanban-lanes' });
 
         for (const lane of this.board.lanes) {
+            if (lane.title === '*** Archive ***') continue;
+
             const laneEl = lanesContainer.createDiv({ cls: 'kanban-lane' });
             if (this.plugin.settings.laneWidth) {
                 laneEl.style.width = `${this.plugin.settings.laneWidth}px`;
@@ -241,6 +248,30 @@ export class KanbanView extends TextFileView {
                     cardEl.addEventListener('contextmenu', (e) => {
                         e.preventDefault();
                         const menu = new Menu();
+
+                        menu.addItem((item) => {
+                            item.setTitle("Archive card")
+                                .setIcon("box")
+                                .onClick(() => {
+                                    if (this.board) {
+                                        let archiveLane = this.board.lanes.find(l => l.title === '*** Archive ***');
+                                        if (!archiveLane) {
+                                            archiveLane = { id: Math.random().toString(36).substring(2, 11), title: '*** Archive ***', cards: [] };
+                                            this.board.lanes.push(archiveLane);
+                                        }
+
+                                        let newContent = card.content;
+                                        if (this.plugin.settings.appendArchiveDate) {
+                                            const format = this.plugin.settings.archiveDateFormat || 'YYYY-MM-DD';
+                                            newContent += ` ${window.moment().format(format)}`;
+                                        }
+
+                                        let updatedBoard = moveCard({ ...this.board }, card.id, archiveLane.id, archiveLane.cards.length);
+                                        updatedBoard = updateCard(updatedBoard, card.id, newContent);
+                                        this.updateBoard(updatedBoard);
+                                    }
+                                });
+                        });
 
                         menu.addItem((item) => {
                             item.setTitle("Create note from card")
@@ -573,5 +604,36 @@ class BoardSettingsModal extends Modal {
     onClose() {
         const { contentEl } = this;
         contentEl.empty();
+    }
+}
+
+class ArchiveModal extends Modal {
+    board: KanbanBoard;
+
+    constructor(app: App, board: KanbanBoard) {
+        super(app);
+        this.board = board;
+    }
+
+    onOpen() {
+        const { contentEl } = this;
+        contentEl.empty();
+        contentEl.createEl('h2', { text: 'Archived Cards' });
+
+        const archiveLane = this.board.lanes.find(l => l.title === '*** Archive ***');
+        if (!archiveLane || archiveLane.cards.length === 0) {
+            contentEl.createEl('p', { text: 'No archived cards.' });
+            return;
+        }
+
+        const list = contentEl.createEl('ul', { cls: 'kanban-archive-list', attr: { style: 'max-height: 400px; overflow-y: auto;' } });
+        archiveLane.cards.forEach(card => {
+            const li = list.createEl('li', { attr: { style: 'margin-bottom: 10px; padding: 10px; border: 1px solid var(--background-modifier-border); border-radius: 4px;' } });
+            MarkdownRenderer.renderMarkdown(card.content, li, "", this as any);
+        });
+    }
+
+    onClose() {
+        this.contentEl.empty();
     }
 }
