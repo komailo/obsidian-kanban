@@ -254,7 +254,27 @@ export class KanbanView extends TextFileView {
 
                     const save = () => {
                         if (this.board) {
-                            const newBoard = updateCard({ ...this.board }, card.id, textarea.value);
+                            let valueToSave = textarea.value;
+
+                            // Date Replacements
+                            const df = this.plugin.settings.dateFormat || 'YYYY-MM-DD';
+
+                            if (valueToSave.includes('@today')) {
+                                valueToSave = valueToSave.replace(/@today/g, window.moment().format(df));
+                            }
+
+                            if (valueToSave.includes('@tomorrow')) {
+                                valueToSave = valueToSave.replace(/@tomorrow/g, window.moment().add(1, 'day').format(df));
+                            }
+
+                            const customTrigger = this.plugin.settings.dateTrigger;
+                            if (customTrigger && customTrigger !== '@today' && customTrigger !== '@tomorrow' && valueToSave.includes(customTrigger)) {
+                                const escapeRegex = (s: string) => s.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+                                const triggerRegex = new RegExp(escapeRegex(customTrigger), 'g');
+                                valueToSave = valueToSave.replace(triggerRegex, window.moment().format(df));
+                            }
+
+                            const newBoard = updateCard({ ...this.board }, card.id, valueToSave);
                             this.editingCardId = null;
                             this.updateBoard(newBoard);
                         }
@@ -276,6 +296,41 @@ export class KanbanView extends TextFileView {
                     });
                 } else {
                     let displayContent = card.content;
+
+                    if (this.plugin.settings.showRelativeDate || this.plugin.settings.linkDateToDailyNote) {
+                        displayContent = displayContent.replace(/(?<!\[\[)(\b\d{4}-\d{2}-\d{2}\b)(?!\]\])/g, (match, p1) => {
+                            let replacement = p1;
+                            if (this.plugin.settings.linkDateToDailyNote) {
+                                replacement = `[[${p1}]]`;
+                            }
+                            if (this.plugin.settings.showRelativeDate) {
+                                const m = window.moment(p1, 'YYYY-MM-DD');
+                                if (m.isValid()) {
+                                    replacement += ` (${m.calendar(null, {
+                                        sameDay: '[Today]',
+                                        nextDay: '[Tomorrow]',
+                                        nextWeek: 'dddd',
+                                        lastDay: '[Yesterday]',
+                                        lastWeek: '[Last] dddd',
+                                        sameElse: 'fromNow'
+                                    })})`; // calendar or fromNow, fromNow is easier: m.fromNow()
+                                    // Actually fromNow() is better for standard relative
+                                    replacement = replacement.replace(/\(.+?\)$/, `(${m.fromNow()})`);
+                                }
+                            }
+                            return replacement;
+                        });
+
+                        if (this.plugin.settings.showRelativeDate) {
+                            displayContent = displayContent.replace(/\[\[(\d{4}-\d{2}-\d{2})\]\](?!\s*\()/g, (match, p1) => {
+                                const m = window.moment(p1, 'YYYY-MM-DD');
+                                if (m.isValid()) {
+                                    return `${match} (${m.fromNow()})`;
+                                }
+                                return match;
+                            });
+                        }
+                    }
 
                     if (this.plugin.settings.hideTagsInTitle) {
                         displayContent = displayContent.replace(/#[^\s#]+/g, '').replace(/\s{2,}/g, ' ').trim();

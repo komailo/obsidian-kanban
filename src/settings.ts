@@ -8,6 +8,10 @@ export interface KanbanSettings {
 	showCheckboxes: boolean;
 	hideTagsInTitle: boolean;
 	laneWidth: number;
+	dateTrigger: string;
+	dateFormat: string;
+	linkDateToDailyNote: boolean;
+	showRelativeDate: boolean;
 }
 
 export const DEFAULT_SETTINGS: KanbanSettings = {
@@ -17,6 +21,10 @@ export const DEFAULT_SETTINGS: KanbanSettings = {
 	showCheckboxes: true,
 	hideTagsInTitle: false,
 	laneWidth: 272,
+	dateTrigger: '@today',
+	dateFormat: 'YYYY-MM-DD',
+	linkDateToDailyNote: false,
+	showRelativeDate: true,
 }
 
 export class KanbanSettingTab extends PluginSettingTab {
@@ -101,5 +109,45 @@ export class KanbanSettingTab extends PluginSettingTab {
 						}
 					});
 			});
+
+		new Setting(containerEl)
+			.setName('Date trigger')
+			.setDesc('When this is typed, it will trigger the date selector (example: @today)')
+			.addText(text => text
+				.setValue(this.plugin.settings.dateTrigger)
+				.onChange(async (value) => {
+					this.plugin.settings.dateTrigger = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Date format')
+			.setDesc('Format used when displaying and storing dates')
+			.addText(text => text
+				.setValue(this.plugin.settings.dateFormat)
+				.onChange(async (value) => {
+					this.plugin.settings.dateFormat = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Link dates to daily notes')
+			.setDesc('When toggled, dates will be rendered as links to daily notes')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.linkDateToDailyNote)
+				.onChange(async (value) => {
+					this.plugin.settings.linkDateToDailyNote = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Show relative date')
+			.setDesc('Display dates as relative to today (e.g. "in 2 days")')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.showRelativeDate)
+				.onChange(async (value) => {
+					this.plugin.settings.showRelativeDate = value;
+					await this.plugin.saveSettings();
+				}));
 	}
 }
