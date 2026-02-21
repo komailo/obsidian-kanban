@@ -10,10 +10,13 @@ export class KanbanView extends TextFileView {
     editingCardId: string | null = null;
     editingLaneId: string | null = null;
     isEditingTitle: boolean = false;
+    placeholderEl: HTMLElement;
 
     constructor(leaf: WorkspaceLeaf, plugin: any) {
         super(leaf);
         this.plugin = plugin;
+        this.placeholderEl = document.createElement('div');
+        this.placeholderEl.addClass('kanban-card-placeholder');
     }
 
     getViewType() {
@@ -134,6 +137,16 @@ export class KanbanView extends TextFileView {
             laneEl.addEventListener('dragover', (e) => {
                 e.preventDefault();
                 laneEl.addClass('kanban-lane-drag-over');
+
+                const cardsContainer = laneEl.querySelector('.kanban-cards');
+                if (cardsContainer) {
+                    const afterElement = this.getDragAfterElement(cardsContainer as HTMLElement, e.clientY);
+                    if (afterElement == null) {
+                        cardsContainer.appendChild(this.placeholderEl);
+                    } else {
+                        cardsContainer.insertBefore(this.placeholderEl, afterElement);
+                    }
+                }
             });
 
             laneEl.addEventListener('dragleave', () => {
@@ -143,6 +156,11 @@ export class KanbanView extends TextFileView {
             laneEl.addEventListener('drop', (e) => {
                 e.preventDefault();
                 laneEl.removeClass('kanban-lane-drag-over');
+
+                if (this.placeholderEl && this.placeholderEl.parentNode) {
+                    this.placeholderEl.parentNode.removeChild(this.placeholderEl);
+                }
+
                 const cardId = e.dataTransfer?.getData('text/plain');
                 if (cardId && this.board) {
                     const cardsContainer = laneEl.querySelector('.kanban-cards') as HTMLElement;
@@ -243,6 +261,9 @@ export class KanbanView extends TextFileView {
 
                     cardEl.addEventListener('dragend', () => {
                         cardEl.removeClass('kanban-card-dragging');
+                        if (this.placeholderEl && this.placeholderEl.parentNode) {
+                            this.placeholderEl.parentNode.removeChild(this.placeholderEl);
+                        }
                     });
 
                     cardEl.addEventListener('contextmenu', (e) => {
