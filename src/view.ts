@@ -394,30 +394,35 @@ export class KanbanView extends TextFileView {
                     }
 
                     if (this.plugin.settings.showCheckboxes) {
-                        const checkboxMatch = displayContent.match(/^- \[(x| )\]\s+([\s\S]*)/i);
-                        if (checkboxMatch && checkboxMatch[1] && checkboxMatch[2] !== undefined) {
-                            const isChecked = checkboxMatch[1].toLowerCase() === 'x';
-                            const text = checkboxMatch[2];
+                        // Instead of custom parsing the first line, we just render the raw markdown
+                        // and use CSS to style the Obsidian task list items to match the UI.
+                        // We also need to hook into clicks on those rendered checkboxes.
+                        const contentContainer = cardEl.createDiv({ cls: 'kanban-card-content kanban-card-native-checkboxes' });
+                        MarkdownRenderer.renderMarkdown(displayContent, contentContainer, this.file?.path || "", this)
+                            .then(() => {
+                                // Add event listeners to rendered checkboxes to update the card content
+                                const checkboxes = contentContainer.querySelectorAll('input[type="checkbox"].task-list-item-checkbox');
+                                checkboxes.forEach((cb: HTMLInputElement, index) => {
+                                    cb.addEventListener('change', (e) => {
+                                        e.stopPropagation();
 
-                            const contentContainerEl = cardEl.createDiv({ cls: 'kanban-card-content kanban-card-has-checkbox' });
-                            const checkboxEl = contentContainerEl.createEl('input', { type: 'checkbox', cls: 'kanban-card-checkbox' });
-                            checkboxEl.checked = isChecked;
+                                        // Simple string replacement: find the nth instance of `- [ ]` or `- [x]`
+                                        let matchCount = -1;
+                                        const newMark = cb.checked ? 'x' : ' ';
+                                        const newContent = card.content.replace(/- \[(x| )\]/ig, (match) => {
+                                            matchCount++;
+                                            if (matchCount === index) {
+                                                return `- [${newMark}]`;
+                                            }
+                                            return match;
+                                        });
 
-                            checkboxEl.addEventListener('change', (e) => {
-                                e.stopPropagation();
-                                const newMark = checkboxEl.checked ? 'x' : ' ';
-                                const newContent = card.content.replace(/^- \[(x| )\]/i, `- [${newMark}]`);
-                                if (this.board) {
-                                    this.updateBoard(updateCard({ ...this.board }, card.id, newContent));
-                                }
+                                        if (this.board && newContent !== card.content) {
+                                            this.updateBoard(updateCard({ ...this.board }, card.id, newContent));
+                                        }
+                                    });
+                                });
                             });
-
-                            const textSpan = contentContainerEl.createSpan();
-                            MarkdownRenderer.renderMarkdown(text, textSpan, this.file?.path || "", this);
-                        } else {
-                            const contentContainer = cardEl.createDiv({ cls: 'kanban-card-content' });
-                            MarkdownRenderer.renderMarkdown(displayContent, contentContainer, this.file?.path || "", this);
-                        }
                     } else {
                         const contentContainer = cardEl.createDiv({ cls: 'kanban-card-content' });
                         MarkdownRenderer.renderMarkdown(displayContent, contentContainer, this.file?.path || "", this);
