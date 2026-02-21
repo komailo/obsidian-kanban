@@ -8,6 +8,7 @@ export class KanbanView extends TextFileView {
     board: KanbanBoard | null = null;
     editingCardId: string | null = null;
     editingLaneId: string | null = null;
+    isEditingTitle: boolean = false;
 
     constructor(leaf: WorkspaceLeaf) {
         super(leaf);
@@ -26,6 +27,7 @@ export class KanbanView extends TextFileView {
         if (clear) {
             this.editingCardId = null;
             this.editingLaneId = null;
+            this.isEditingTitle = false;
         }
         this.render();
     }
@@ -39,6 +41,7 @@ export class KanbanView extends TextFileView {
         this.board = null;
         this.editingCardId = null;
         this.editingLaneId = null;
+        this.isEditingTitle = false;
     }
 
     setBoard(board: KanbanBoard) {
@@ -67,7 +70,38 @@ export class KanbanView extends TextFileView {
         const boardEl = container.createDiv({ cls: 'kanban-board' });
         
         const headerEl = boardEl.createDiv({ cls: 'kanban-header' });
-        headerEl.createEl('h1', { text: this.board.title || this.file?.basename || "Untitled Board", cls: 'kanban-title' });
+        
+        if (this.isEditingTitle) {
+            const titleInput = headerEl.createEl('input', {
+                cls: 'kanban-title-input',
+                value: this.board.title || this.file?.basename || ""
+            });
+            titleInput.focus();
+            
+            const saveTitle = () => {
+                this.board!.title = titleInput.value;
+                this.isEditingTitle = false;
+                this.updateBoard({ ...this.board! });
+            };
+
+            titleInput.addEventListener('blur', saveTitle);
+            titleInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') saveTitle();
+                if (e.key === 'Escape') {
+                    this.isEditingTitle = false;
+                    this.render();
+                }
+            });
+        } else {
+            const titleEl = headerEl.createEl('h1', { 
+                text: this.board.title || this.file?.basename || "Untitled Board", 
+                cls: 'kanban-title' 
+            });
+            titleEl.addEventListener('click', () => {
+                this.isEditingTitle = true;
+                this.render();
+            });
+        }
 
         const lanesContainer = boardEl.createDiv({ cls: 'kanban-lanes' });
 

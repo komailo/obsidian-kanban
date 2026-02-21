@@ -23,6 +23,17 @@
     font-weight: 600;
 }
 
+.kanban-title-input {
+    background-color: var(--background-primary);
+    color: var(--text-normal);
+    border: 1px solid var(--interactive-accent);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 1.5em;
+    font-weight: 600;
+    width: 100%;
+}
+
 .kanban-lanes {
     display: flex;
     gap: 16px;
