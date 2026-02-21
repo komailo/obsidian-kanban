@@ -61,6 +61,17 @@
     border-color: var(--interactive-accent);
 }
 
+.kanban-card-dragging {
+    opacity: 0.5;
+    border: 2px dashed var(--interactive-accent);
+}
+
+.kanban-lane-drag-over {
+    background-color: var(--background-modifier-hover);
+    border: 2px dashed var(--interactive-accent);
+    min-height: 50px;
+}
+
 .kanban-card-checkbox-wrapper {
     padding-top: 2px;
 }
