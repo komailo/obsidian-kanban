@@ -47,3 +47,14 @@ export function moveCard(board: KanbanBoard, cardId: string, targetLaneId: strin
 
     return board;
 }
+
+export function updateCard(board: KanbanBoard, cardId: string, newContent: string): KanbanBoard {
+    for (const lane of board.lanes) {
+        const card = lane.cards.find(c => c.id === cardId);
+        if (card) {
+            card.content = newContent;
+            break;
+        }
+    }
+    return board;
+}

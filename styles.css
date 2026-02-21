@@ -80,3 +80,18 @@
     flex-grow: 1;
     font-size: 0.9em;
 }
+
+.kanban-card-textarea {
+    flex-grow: 1;
+    width: 100%;
+    min-height: 60px;
+    background-color: var(--background-primary);
+    color: var(--text-normal);
+    border: none;
+    resize: none;
+    padding: 0;
+    margin: 0;
+    font-size: 0.9em;
+    font-family: inherit;
+    outline: none;
+}

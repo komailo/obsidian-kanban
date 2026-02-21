@@ -1,10 +1,11 @@
 import { ItemView, WorkspaceLeaf } from 'obsidian';
-import { KanbanBoard, moveCard } from './types';
+import { KanbanBoard, moveCard, updateCard } from './types';
 
 export const KANBAN_VIEW_TYPE = 'kanban-view';
 
 export class KanbanView extends ItemView {
     board: KanbanBoard | null = null;
+    editingCardId: string | null = null;
 
     constructor(leaf: WorkspaceLeaf) {
         super(leaf);
@@ -67,7 +68,6 @@ export class KanbanView extends ItemView {
                 cardsContainer.removeClass('kanban-lane-drag-over');
                 const cardId = e.dataTransfer?.getData('text/plain');
                 if (cardId && this.board) {
-                    // Calculate drop index based on mouse position
                     const afterElement = this.getDragAfterElement(cardsContainer, e.clientY);
                     const index = afterElement == null 
                         ? lane.cards.length 
@@ -79,23 +79,31 @@ export class KanbanView extends ItemView {
             });
 
             lane.cards.forEach((card, index) => {
-                const cardEl = cardsContainer.createDiv({ cls: 'kanban-card' });
-                cardEl.draggable = true;
+                const isEditing = this.editingCardId === card.id;
+                const cardEl = cardsContainer.createDiv({ cls: `kanban-card ${isEditing ? 'kanban-card-editing' : ''}` });
+                cardEl.draggable = !isEditing;
                 cardEl.dataset.cardId = card.id;
                 cardEl.dataset.laneId = lane.id;
                 cardEl.dataset.index = index.toString();
 
-                cardEl.addEventListener('dragstart', (e) => {
-                    if (e.dataTransfer) {
-                        e.dataTransfer.setData('text/plain', card.id);
-                        e.dataTransfer.effectAllowed = 'move';
-                    }
-                    cardEl.addClass('kanban-card-dragging');
-                });
+                if (!isEditing) {
+                    cardEl.addEventListener('dragstart', (e) => {
+                        if (e.dataTransfer) {
+                            e.dataTransfer.setData('text/plain', card.id);
+                            e.dataTransfer.effectAllowed = 'move';
+                        }
+                        cardEl.addClass('kanban-card-dragging');
+                    });
 
-                cardEl.addEventListener('dragend', () => {
-                    cardEl.removeClass('kanban-card-dragging');
-                });
+                    cardEl.addEventListener('dragend', () => {
+                        cardEl.removeClass('kanban-card-dragging');
+                    });
+
+                    cardEl.addEventListener('click', () => {
+                        this.editingCardId = card.id;
+                        this.render();
+                    });
+                }
 
                 const checkboxWrapper = cardEl.createDiv({ cls: 'kanban-card-checkbox-wrapper' });
                 const checkbox = checkboxWrapper.createEl('input', { 
@@ -103,8 +111,37 @@ export class KanbanView extends ItemView {
                     cls: 'kanban-card-checkbox' 
                 });
                 checkbox.checked = card.completed;
+                checkbox.disabled = isEditing;
                 
-                cardEl.createDiv({ text: card.content, cls: 'kanban-card-content' });
+                if (isEditing) {
+                    const textarea = cardEl.createEl('textarea', {
+                        cls: 'kanban-card-textarea',
+                        text: card.content
+                    });
+                    
+                    textarea.focus();
+                    
+                    const save = () => {
+                        if (this.board) {
+                            this.board = updateCard(this.board, card.id, textarea.value);
+                            this.editingCardId = null;
+                            this.render();
+                        }
+                    };
+
+                    textarea.addEventListener('blur', save);
+                    textarea.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            textarea.blur();
+                        } else if (e.key === 'Escape') {
+                            this.editingCardId = null;
+                            this.render();
+                        }
+                    });
+                } else {
+                    cardEl.createDiv({ text: card.content, cls: 'kanban-card-content' });
+                }
             });
         }
     }
