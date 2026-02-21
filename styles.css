@@ -226,3 +226,37 @@
     background-color: var(--background-modifier-hover);
     color: var(--text-normal);
 }
+
+.kanban-card-content ul,
+.kanban-card-content ol {
+    padding-inline-start: 1.5em; /* Closer to Obsidian's default reading view list indent */
+    margin-block-start: 0.25em;
+    margin-block-end: 0.25em;
+}
+
+.kanban-card-content li {
+    margin-bottom: 2px;
+}
+
+.kanban-card-content .task-list-item {
+    list-style: none;
+    margin-left: -1.5em; /* Pull back to handle the lack of bullet point */
+    display: flex;
+    align-items: flex-start;
+}
+
+.kanban-card-content .task-list-item-checkbox {
+    margin-top: 0.25em;
+    margin-right: 0.5em;
+}
+
+.kanban-card-has-checkbox {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.kanban-card-checkbox {
+    margin-top: 3px;
+    cursor: pointer;
+}
