@@ -1,5 +1,6 @@
 import { Plugin, WorkspaceLeaf, TFile } from 'obsidian';
 import { KanbanView, KANBAN_VIEW_TYPE } from './view';
+import { MarkdownParser } from './parser';
 import { DEFAULT_SETTINGS, KanbanSettings, KanbanSettingTab } from './settings';
 
 export default class KanbanPlugin extends Plugin {
@@ -47,7 +48,7 @@ export default class KanbanPlugin extends Plugin {
         
         // Create a new file with .kanban extension
         const fileName = `Untitled Kanban ${Date.now()}.kanban`;
-        const content = "# New Board\n\n## Todo\n\n## Done\n";
+        const content = "# New Board\n\n## Backlog\n\n## Todo\n\n## In Progress\n\n## Done\n";
         
         const file = await vault.create(fileName, content);
         
@@ -74,6 +75,28 @@ export default class KanbanPlugin extends Plugin {
 
         if (leaf) {
             workspace.revealLeaf(leaf);
+
+            // For now, let's load some sample data if the view is empty
+            const view = leaf.view as KanbanView;
+            if (view && !view.board) {
+                const sampleMarkdown = `
+# My Project Board
+
+## Backlog
+
+## Todo
+- [ ] Task 1
+- [ ] Task 2
+
+## In Progress
+- [ ] Task 3 (in progress)
+
+## Done
+- [x] Task 4
+`;
+                const board = MarkdownParser.parse(sampleMarkdown);
+                view.setBoard(board);
+            }
         }
     }
 

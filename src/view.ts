@@ -1,5 +1,5 @@
-import { TextFileView, WorkspaceLeaf } from 'obsidian';
-import { KanbanBoard, moveCard, updateCard } from './types';
+import { TextFileView, WorkspaceLeaf, Menu } from 'obsidian';
+import { KanbanBoard, moveCard, updateCard, KanbanLane } from './types';
 import { MarkdownParser } from './parser';
 
 export const KANBAN_VIEW_TYPE = 'kanban-view';
@@ -7,6 +7,7 @@ export const KANBAN_VIEW_TYPE = 'kanban-view';
 export class KanbanView extends TextFileView {
     board: KanbanBoard | null = null;
     editingCardId: string | null = null;
+    editingLaneId: string | null = null;
 
     constructor(leaf: WorkspaceLeaf) {
         super(leaf);
@@ -20,16 +21,15 @@ export class KanbanView extends TextFileView {
         return this.file ? this.file.basename : 'Kanban Board';
     }
 
-    // This is called when the file is loaded into the view
     setViewData(data: string, clear: boolean) {
         this.board = MarkdownParser.parse(data);
         if (clear) {
             this.editingCardId = null;
+            this.editingLaneId = null;
         }
         this.render();
     }
 
-    // This is called when Obsidian wants to save the file
     getViewData() {
         if (!this.board) return "";
         return MarkdownParser.stringify(this.board);
@@ -38,16 +38,19 @@ export class KanbanView extends TextFileView {
     clear() {
         this.board = null;
         this.editingCardId = null;
+        this.editingLaneId = null;
     }
 
-    async onOpen() {
-        // TextFileView handles much of the container logic
+    setBoard(board: KanbanBoard) {
+        this.board = board;
+        this.render();
     }
 
-    // Helper to update board and request save
+    async onOpen() {}
+
     private updateBoard(newBoard: KanbanBoard) {
         this.board = newBoard;
-        this.requestSave(); // Triggers Obsidian's save lifecycle which calls getViewData
+        this.requestSave();
         this.render();
     }
 
@@ -63,7 +66,6 @@ export class KanbanView extends TextFileView {
 
         const boardEl = container.createDiv({ cls: 'kanban-board' });
         
-        // Header section like the screenshot
         const headerEl = boardEl.createDiv({ cls: 'kanban-header' });
         headerEl.createEl('h1', { text: this.board.title || this.file?.basename || "Untitled Board", cls: 'kanban-title' });
 
@@ -74,7 +76,53 @@ export class KanbanView extends TextFileView {
             laneEl.dataset.laneId = lane.id;
             
             const laneHeader = laneEl.createDiv({ cls: 'kanban-lane-header' });
-            laneHeader.createDiv({ text: lane.title, cls: 'kanban-lane-title' });
+            
+            if (this.editingLaneId === lane.id) {
+                const laneInput = laneHeader.createEl('input', {
+                    cls: 'kanban-lane-title-input',
+                    value: lane.title
+                });
+                laneInput.focus();
+                
+                const saveLane = () => {
+                    lane.title = laneInput.value;
+                    this.editingLaneId = null;
+                    this.updateBoard({ ...this.board! });
+                };
+
+                laneInput.addEventListener('blur', saveLane);
+                laneInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') saveLane();
+                    if (e.key === 'Escape') {
+                        this.editingLaneId = null;
+                        this.render();
+                    }
+                });
+            } else {
+                const titleEl = laneHeader.createDiv({ text: lane.title, cls: 'kanban-lane-title' });
+                titleEl.addEventListener('click', () => {
+                    this.editingLaneId = lane.id;
+                    this.render();
+                });
+
+                // Lane menu
+                const menuBtn = laneHeader.createDiv({ cls: 'kanban-lane-menu-btn', text: '⋮' });
+                menuBtn.addEventListener('click', (e) => {
+                    const menu = new Menu();
+                    menu.addItem((item) => 
+                        item.setTitle("Delete lane")
+                            .setIcon("trash")
+                            .onClick(() => {
+                                if (this.board) {
+                                    this.board.lanes = this.board.lanes.filter(l => l.id !== lane.id);
+                                    this.updateBoard({ ...this.board });
+                                }
+                            })
+                    );
+                    menu.showAtMouseEvent(e);
+                });
+            }
+            
             laneHeader.createDiv({ text: lane.cards.length.toString(), cls: 'kanban-lane-count' });
 
             const cardsContainer = laneEl.createDiv({ cls: 'kanban-cards' });
@@ -176,7 +224,6 @@ export class KanbanView extends TextFileView {
                 }
             });
 
-            // Add card button at bottom of lane
             const addCardBtn = laneEl.createDiv({ cls: 'kanban-add-card', text: '+ Add a card' });
             addCardBtn.addEventListener('click', () => {
                 if (this.board) {
@@ -191,6 +238,21 @@ export class KanbanView extends TextFileView {
                 }
             });
         }
+
+        // Add Lane button
+        const addLaneBtn = lanesContainer.createDiv({ cls: 'kanban-add-lane', text: '+ Add another list' });
+        addLaneBtn.addEventListener('click', () => {
+            if (this.board) {
+                const newLane: KanbanLane = {
+                    id: Math.random().toString(36).substring(2, 11),
+                    title: "",
+                    cards: []
+                };
+                this.board.lanes.push(newLane);
+                this.editingLaneId = newLane.id;
+                this.updateBoard({ ...this.board });
+            }
+        });
     }
 
     private getDragAfterElement(container: HTMLElement, y: number): HTMLElement | null {

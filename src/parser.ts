@@ -45,6 +45,16 @@ export class MarkdownParser {
             }
         }
 
+        // If no lanes found, add default swimlanes
+        if (board.lanes.length === 0) {
+            const defaultLanes = ['Backlog', 'Todo', 'In Progress', 'Done'];
+            board.lanes = defaultLanes.map(title => ({
+                id: Math.random().toString(36).substring(2, 11),
+                title,
+                cards: []
+            }));
+        }
+
         return board;
     }
 
