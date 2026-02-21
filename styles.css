@@ -1,8 +1,71 @@
-/*
+.kanban-board-container {
+    padding: 20px;
+    height: 100%;
+    overflow-x: auto;
+}
 
-This CSS file will be included with your plugin, and
-available in the app when your plugin is enabled.
+.kanban-board {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
 
-If your plugin does not need CSS, delete this file.
+.kanban-title {
+    margin-bottom: 20px;
+}
 
-*/
+.kanban-lanes {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    height: 100%;
+}
+
+.kanban-lane {
+    background-color: var(--background-secondary);
+    border-radius: 8px;
+    min-width: 250px;
+    max-width: 300px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    max-height: 100%;
+}
+
+.kanban-lane-title {
+    font-weight: bold;
+    margin-bottom: 12px;
+    padding: 4px;
+    font-size: 1.1em;
+}
+
+.kanban-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+}
+
+.kanban-card {
+    background-color: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+    padding: 8px;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.kanban-card:hover {
+    border-color: var(--interactive-accent);
+}
+
+.kanban-card-checkbox-wrapper {
+    padding-top: 2px;
+}
+
+.kanban-card-content {
+    flex-grow: 1;
+    font-size: 0.9em;
+}

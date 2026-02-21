@@ -1,99 +1,84 @@
-import {App, Editor, MarkdownView, Modal, Notice, Plugin} from 'obsidian';
-import {DEFAULT_SETTINGS, KanbanSettings, KanbanSettingTab} from "./settings";
-
-// Remember to rename these classes and interfaces!
+import { App, Editor, MarkdownView, Modal, Notice, Plugin, WorkspaceLeaf } from 'obsidian';
+import { KanbanView, KANBAN_VIEW_TYPE } from './view';
+import { MarkdownParser } from './parser';
+import { DEFAULT_SETTINGS, KanbanSettings, KanbanSettingTab } from './settings';
 
 export default class KanbanPlugin extends Plugin {
-	settings: KanbanSettings;
+    settings: KanbanSettings;
 
-	async onload() {
-		await this.loadSettings();
+    async onload() {
+        await this.loadSettings();
 
-		// This creates an icon in the left ribbon.
-		this.addRibbonIcon('dice', 'Sample', (evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
-		});
+        this.registerView(
+            KANBAN_VIEW_TYPE,
+            (leaf) => new KanbanView(leaf)
+        );
 
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status bar text');
+        this.addRibbonIcon('dice', 'Open Kanban Board', () => {
+            this.activateView();
+        });
 
-		// This adds a simple command that can be triggered anywhere
-		this.addCommand({
-			id: 'open-modal-simple',
-			name: 'Open modal (simple)',
-			callback: () => {
-				new KanbanModal(this.app).open();
-			}
-		});
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: 'replace-selected',
-			name: 'Replace selected content',
-			editorCallback: (editor: Editor, view: MarkdownView) => {
-				editor.replaceSelection('Sample editor command');
-			}
-		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: 'open-modal-complex',
-			name: 'Open modal (complex)',
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new KanbanModal(this.app).open();
-					}
+        this.addCommand({
+            id: 'open-kanban-view',
+            name: 'Open Kanban View',
+            callback: () => {
+                this.activateView();
+            }
+        });
 
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
-				}
-				return false;
-			}
-		});
+        this.addSettingTab(new KanbanSettingTab(this.app, this));
+    }
 
-		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new KanbanSettingTab(this.app, this));
+    onunload() {
+        this.app.workspace.detachLeavesOfType(KANBAN_VIEW_TYPE);
+    }
 
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			new Notice("Click");
-		});
+    async activateView() {
+        const { workspace } = this.app;
 
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
+        let leaf: WorkspaceLeaf | null | undefined = null;
+        const leaves = workspace.getLeavesOfType(KANBAN_VIEW_TYPE);
 
-	}
+        if (leaves.length > 0) {
+            leaf = leaves[0];
+        } else {
+            const rightLeaf = workspace.getRightLeaf(false);
+            if (rightLeaf) {
+                leaf = rightLeaf;
+                await leaf.setViewState({ type: KANBAN_VIEW_TYPE, active: true });
+            }
+        }
 
-	onunload() {
-	}
+        if (leaf) {
+            workspace.revealLeaf(leaf);
+            
+            // For now, let's load some sample data if the view is empty
+            const view = leaf.view as KanbanView;
+            if (view && !view.board) {
+                const sampleMarkdown = `
+# My Project Board
 
-	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData() as Partial<KanbanSettings>);
-	}
+## Todo
+- [ ] Task 1
+- [ ] Task 2
 
-	async saveSettings() {
-		await this.saveData(this.settings);
-	}
-}
+## In Progress
+- [ ] Task 3 (in progress)
 
-class KanbanModal extends Modal {
-	constructor(app: App) {
-		super(app);
-	}
+## Done
+- [x] Task 4
+`;
+                const board = MarkdownParser.parse(sampleMarkdown);
+                view.setBoard(board);
+            }
+        }
+    }
 
-	onOpen() {
-		let {contentEl} = this;
-		contentEl.setText('Woah!');
-	}
+    async loadSettings() {
+        this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData() as Partial<KanbanSettings>);
+    }
 
-	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
-	}
+    async saveSettings() {
+        await this.saveData(this.settings);
+    }
 }
