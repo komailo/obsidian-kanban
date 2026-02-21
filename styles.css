@@ -231,7 +231,6 @@
     list-style: none;
     display: flex;
     align-items: flex-start;
-    margin-left: -18px; /* Offset the native obsidian padding */
 }
 
 .kanban-card-native-checkboxes .task-list-item-checkbox {
@@ -243,7 +242,7 @@
 .kanban-card-native-checkboxes ul {
     margin-block-start: 0.25em;
     margin-block-end: 0.25em;
-    padding-inline-start: 24px;
+    padding-inline-start: 12px;
 }
 
 .kanban-card-native-checkboxes p {
