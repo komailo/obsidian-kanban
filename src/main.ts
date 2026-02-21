@@ -2,6 +2,7 @@ import { Plugin, WorkspaceLeaf, TFile } from 'obsidian';
 import { KanbanView, KANBAN_VIEW_TYPE } from './view';
 import { MarkdownParser } from './parser';
 import { DEFAULT_SETTINGS, KanbanSettings, KanbanSettingTab } from './settings';
+import { CreateBoardModal } from './CreateBoardModal';
 
 export default class KanbanPlugin extends Plugin {
     settings: KanbanSettings;
@@ -46,15 +47,45 @@ export default class KanbanPlugin extends Plugin {
     async createNewBoard() {
         const { vault, workspace } = this.app;
 
-        // Create a new file with .kanban extension
-        const fileName = `Untitled Kanban ${Date.now()}.kanban`;
-        const content = "# New Board\n\n## Backlog\n\n## Todo\n\n## In Progress\n\n## Done\n";
+        new CreateBoardModal(this.app, async (boardName: string, createFolder: boolean) => {
+            if (!boardName) boardName = 'Untitled Kanban';
 
-        const file = await vault.create(fileName, content);
+            let folderPath = '';
+            let fileName = `${boardName}.kanban`;
 
-        // Open the file
-        const leaf = workspace.getLeaf(true);
-        await leaf.openFile(file);
+            if (createFolder) {
+                // Check if folder exists, if not, create it
+                const folderExists = vault.getAbstractFileByPath(boardName);
+                if (!folderExists) {
+                    await vault.createFolder(boardName);
+                }
+                folderPath = `${boardName}/`;
+                // To support folder notes nicely, name the file as index.kanban
+                // Wait, if it's named index.kanban, users can easily know it represents the folder.
+                fileName = `${folderPath}index.kanban`;
+            } else {
+                fileName = `${boardName}.kanban`;
+            }
+
+            // Ensure unique filename if it already exists
+            let finalFileName = fileName;
+            let counter = 1;
+            while (vault.getAbstractFileByPath(finalFileName)) {
+                if (createFolder) {
+                    finalFileName = `${folderPath}index ${counter}.kanban`;
+                } else {
+                    finalFileName = `${boardName} ${counter}.kanban`;
+                }
+                counter++;
+            }
+
+            const content = `# ${boardName}\n\n## Backlog\n\n## Todo\n\n## In Progress\n\n## Done\n`;
+            const file = await vault.create(finalFileName, content);
+
+            // Open the file
+            const leaf = workspace.getLeaf(true);
+            await leaf.openFile(file as TFile);
+        }).open();
     }
 
     async activateView() {
