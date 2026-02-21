@@ -1,12 +1,12 @@
-import {App, PluginSettingTab, Setting} from "obsidian";
+import { App, PluginSettingTab, Setting } from "obsidian";
 import KanbanPlugin from "./main";
 
 export interface KanbanSettings {
-	mySetting: string;
+	defaultLanes: string[];
 }
 
 export const DEFAULT_SETTINGS: KanbanSettings = {
-	mySetting: 'default'
+	defaultLanes: ['Backlog', 'Todo', 'In Progress', 'Done']
 }
 
 export class KanbanSettingTab extends PluginSettingTab {
@@ -23,13 +23,13 @@ export class KanbanSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName('Settings #1')
-			.setDesc('It\'s a secret')
-			.addText(text => text
-				.setPlaceholder('Enter your secret')
-				.setValue(this.plugin.settings.mySetting)
+			.setName('Default lanes')
+			.setDesc('Default swim lanes for new Kanban boards (one per line)')
+			.addTextArea(text => text
+				.setPlaceholder('Backlog\nTodo\nIn Progress\nDone')
+				.setValue(this.plugin.settings.defaultLanes.join('\n'))
 				.onChange(async (value) => {
-					this.plugin.settings.mySetting = value;
+					this.plugin.settings.defaultLanes = value.split('\n').filter(l => l.trim() !== '');
 					await this.plugin.saveSettings();
 				}));
 	}

@@ -1,4 +1,4 @@
-import { TextFileView, WorkspaceLeaf, Menu } from 'obsidian';
+import { TextFileView, WorkspaceLeaf, Menu, Modal, App, Setting, Notice } from 'obsidian';
 import { KanbanBoard, moveCard, updateCard, KanbanLane } from './types';
 import { MarkdownParser } from './parser';
 
@@ -71,8 +71,9 @@ export class KanbanView extends TextFileView {
         
         const headerEl = boardEl.createDiv({ cls: 'kanban-header' });
         
+        const titleWrapper = headerEl.createDiv({ cls: 'kanban-title-wrapper' });
         if (this.isEditingTitle) {
-            const titleInput = headerEl.createEl('input', {
+            const titleInput = titleWrapper.createEl('input', {
                 cls: 'kanban-title-input',
                 value: this.board.title || this.file?.basename || ""
             });
@@ -93,7 +94,7 @@ export class KanbanView extends TextFileView {
                 }
             });
         } else {
-            const titleEl = headerEl.createEl('h1', { 
+            const titleEl = titleWrapper.createEl('h1', { 
                 text: this.board.title || this.file?.basename || "Untitled Board", 
                 cls: 'kanban-title' 
             });
@@ -102,6 +103,14 @@ export class KanbanView extends TextFileView {
                 this.render();
             });
         }
+
+        // Settings button in header
+        const settingsBtn = headerEl.createDiv({ cls: 'kanban-settings-btn', text: '⚙' });
+        settingsBtn.addEventListener('click', () => {
+            new BoardSettingsModal(this.app, this.board!, (newBoard) => {
+                this.updateBoard(newBoard);
+            }).open();
+        });
 
         const lanesContainer = boardEl.createDiv({ cls: 'kanban-lanes' });
 
@@ -146,13 +155,21 @@ export class KanbanView extends TextFileView {
                     menu.addItem((item) => 
                         item.setTitle("Delete lane")
                             .setIcon("trash")
+                            .setDisabled(lane.cards.length > 0)
                             .onClick(() => {
+                                if (lane.cards.length > 0) {
+                                    new Notice("Cannot delete a lane that contains cards.");
+                                    return;
+                                }
                                 if (this.board) {
                                     this.board.lanes = this.board.lanes.filter(l => l.id !== lane.id);
                                     this.updateBoard({ ...this.board });
                                 }
                             })
                     );
+                    if (lane.cards.length > 0) {
+                        menu.addItem((item) => item.setTitle("Only empty lanes can be deleted").setDisabled(true));
+                    }
                     menu.showAtMouseEvent(e);
                 });
             }
@@ -272,21 +289,6 @@ export class KanbanView extends TextFileView {
                 }
             });
         }
-
-        // Add Lane button
-        const addLaneBtn = lanesContainer.createDiv({ cls: 'kanban-add-lane', text: '+ Add another list' });
-        addLaneBtn.addEventListener('click', () => {
-            if (this.board) {
-                const newLane: KanbanLane = {
-                    id: Math.random().toString(36).substring(2, 11),
-                    title: "",
-                    cards: []
-                };
-                this.board.lanes.push(newLane);
-                this.editingLaneId = newLane.id;
-                this.updateBoard({ ...this.board });
-            }
-        });
     }
 
     private getDragAfterElement(container: HTMLElement, y: number): HTMLElement | null {
@@ -301,5 +303,80 @@ export class KanbanView extends TextFileView {
                 return closest;
             }
         }, { offset: Number.NEGATIVE_INFINITY, element: null }).element;
+    }
+}
+
+class BoardSettingsModal extends Modal {
+    board: KanbanBoard;
+    onSave: (board: KanbanBoard) => void;
+
+    constructor(app: App, board: KanbanBoard, onSave: (board: KanbanBoard) => void) {
+        super(app);
+        this.board = board;
+        this.onSave = onSave;
+    }
+
+    onOpen() {
+        const { contentEl } = this;
+        contentEl.empty();
+        contentEl.createEl('h2', { text: 'Board Settings' });
+
+        new Setting(contentEl)
+            .setName('Swim lanes')
+            .setDesc('Configure the lanes for this board (one per line). Reordering the lines will reorder the lanes.')
+            .addTextArea(text => {
+                text.setPlaceholder('Backlog\nTodo\nIn Progress\nDone')
+                    .setValue(this.board.lanes.map(l => l.title).join('\n'))
+                    .onChange((value) => {
+                        const newTitles = value.split('\n').filter(t => t.trim() !== '');
+                        
+                        // Merge logic: keep existing cards, add new lanes, remove missing lanes (if empty)
+                        const currentLanes = [...this.board.lanes];
+                        const updatedLanes: KanbanLane[] = [];
+
+                        newTitles.forEach(title => {
+                            const existing = currentLanes.find(l => l.title === title);
+                            if (existing) {
+                                updatedLanes.push(existing);
+                            } else {
+                                updatedLanes.push({
+                                    id: Math.random().toString(36).substring(2, 11),
+                                    title,
+                                    cards: []
+                                });
+                            }
+                        });
+
+                        // Check if any lanes with cards were removed
+                        const removedWithCards = currentLanes.filter(l => 
+                            !newTitles.includes(l.title) && l.cards.length > 0
+                        );
+
+                        if (removedWithCards.length > 0) {
+                            // If user tries to remove a lane with cards via settings, 
+                            // we should probably prevent it or warn them.
+                            // For simplicity, let's keep them at the end.
+                            removedWithCards.forEach(l => updatedLanes.push(l));
+                        }
+
+                        this.board.lanes = updatedLanes;
+                    });
+                text.inputEl.rows = 8;
+                text.inputEl.style.width = '100%';
+            });
+
+        new Setting(contentEl)
+            .addButton(btn => btn
+                .setButtonText('Save')
+                .setCta()
+                .onClick(() => {
+                    this.onSave(this.board);
+                    this.close();
+                }));
+    }
+
+    onClose() {
+        const { contentEl } = this;
+        contentEl.empty();
     }
 }

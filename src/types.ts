@@ -11,10 +11,14 @@ export interface KanbanLane {
     cards: KanbanCard[];
 }
 
+export interface KanbanBoardSettings {
+    lanes?: string[]; // The defined lane titles for this board
+}
+
 export interface KanbanBoard {
     title: string;
     lanes: KanbanLane[];
-    settings?: Record<string, any>;
+    settings?: KanbanBoardSettings;
     description?: string;
 }
 
