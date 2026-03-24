@@ -1,4 +1,4 @@
-import { TextFileView, WorkspaceLeaf, Menu, Modal, App, Setting, Notice, MarkdownRenderer, normalizePath } from 'obsidian';
+import { TextFileView, WorkspaceLeaf, Menu, Modal, App, Setting, Notice, MarkdownRenderer, normalizePath, TFile } from 'obsidian';
 import { KanbanBoard, moveCard, updateCard, duplicateCard, KanbanLane } from './types';
 import { MarkdownParser } from './parser';
 import * as flatpickr from 'flatpickr';
@@ -15,7 +15,7 @@ export class KanbanView extends TextFileView {
     filterText: string = "";
     placeholderEl: HTMLElement;
 
-    constructor(leaf: WorkspaceLeaf, plugin: any) {
+    constructor(leaf: WorkspaceLeaf, plugin: KanbanPlugin) {
         super(leaf);
         this.plugin = plugin;
         this.placeholderEl = document.createElement('div');
@@ -347,7 +347,7 @@ export class KanbanView extends TextFileView {
                         menu.addItem((item) => {
                             item.setIcon("lucide-archive")
                                 .setTitle("Archive card")
-                                .onClick(() => {
+                                .onClick(async () => {
                                     if (this.board) {
                                         let archiveLane = this.board.lanes.find(l => l.title === '*** Archive ***');
                                         if (!archiveLane) {
@@ -361,8 +361,54 @@ export class KanbanView extends TextFileView {
                                             newContent += ` ${window.moment().format(format)}`;
                                         }
 
+                                        // Archive linked notes if setting is enabled
+                                        const file = this.file;
+                                        if (this.plugin.settings.archiveLinkedNotes && file) {
+                                            const filePath = file.path;
+                                            const parentPath = file.parent ? file.parent.path : "";
+                                            const linkRegex = /\[\[([^\]|]+)(?:\|.*)?\]\]/g;
+                                            let match;
+                                            
+                                            // Format for prepending: YYYY-MM-DD - 
+                                            const archiveDateFormat = this.plugin.settings.archiveDateFormat || 'YYYY-MM-DD';
+                                            const datePrefix = card.date || window.moment().format(archiveDateFormat);
+                                            
+                                            while ((match = linkRegex.exec(card.content)) !== null) {
+                                                const linkText = match[1];
+                                                if (!linkText) continue;
+                                                const destFile = this.app.metadataCache.getFirstLinkpathDest(linkText, filePath);
+                                                if (destFile && destFile instanceof TFile) {
+                                                    const archiveFolderPath = normalizePath(`${parentPath}/archive`);
+                                                    
+                                                    // Ensure archive folder exists
+                                                    if (!this.app.vault.getAbstractFileByPath(archiveFolderPath)) {
+                                                        await this.app.vault.createFolder(archiveFolderPath);
+                                                    }
+
+                                                    const newFileName = `${datePrefix} - ${destFile.name}`;
+                                                    const newPath = normalizePath(`${archiveFolderPath}/${newFileName}`);
+                                                    
+                                                    // Check if already archived/exists
+                                                    if (!this.app.vault.getAbstractFileByPath(newPath)) {
+                                                        const oldLink = match[0];
+                                                        await this.app.fileManager.renameFile(destFile, newPath);
+                                                        
+                                                        // Update the card content with the new link
+                                                        const newLinkName = newFileName.replace(/\.md$/, '');
+                                                        const newLink = `[[${newLinkName}]]`;
+                                                        card.content = card.content.replace(oldLink, newLink);
+                                                    }
+                                                }
+                                            }
+                                        }
+
                                         let updatedBoard = moveCard({ ...this.board }, card.id, archiveLane.id, archiveLane.cards.length);
-                                        updatedBoard = updateCard(updatedBoard, card.id, newContent);
+                                        let finalContent = card.content;
+                                        if (this.plugin.settings.appendArchiveDate) {
+                                            const format = this.plugin.settings.archiveDateFormat || 'YYYY-MM-DD';
+                                            finalContent += ` ${window.moment().format(format)}`;
+                                        }
+                                        updatedBoard = updateCard(updatedBoard, card.id, finalContent);
                                         this.updateBoard(updatedBoard);
                                     }
                                 });

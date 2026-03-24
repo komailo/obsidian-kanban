@@ -15,6 +15,7 @@ export interface KanbanSettings {
 	showLinkedPageMetadata: boolean;
 	appendArchiveDate: boolean;
 	archiveDateFormat: string;
+	archiveLinkedNotes: boolean;
 }
 
 export const DEFAULT_SETTINGS: KanbanSettings = {
@@ -31,6 +32,7 @@ export const DEFAULT_SETTINGS: KanbanSettings = {
 	showLinkedPageMetadata: false,
 	appendArchiveDate: false,
 	archiveDateFormat: 'YYYY-MM-DD',
+	archiveLinkedNotes: false,
 }
 
 export class KanbanSettingTab extends PluginSettingTab {
@@ -193,6 +195,16 @@ export class KanbanSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.appendArchiveDate)
 				.onChange(async (value) => {
 					this.plugin.settings.appendArchiveDate = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Archive linked notes')
+			.setDesc('Automatically move linked notes to an archive folder when archiving a card')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.archiveLinkedNotes)
+				.onChange(async (value) => {
+					this.plugin.settings.archiveLinkedNotes = value;
 					await this.plugin.saveSettings();
 				}));
 
