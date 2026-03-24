@@ -11,6 +11,7 @@ export class KanbanView extends TextFileView {
     editingCardId: string | null = null;
     editingLaneId: string | null = null;
     isEditingTitle: boolean = false;
+    filterText: string = "";
     placeholderEl: HTMLElement;
 
     constructor(leaf: WorkspaceLeaf, plugin: any) {
@@ -117,6 +118,33 @@ export class KanbanView extends TextFileView {
                 this.render();
             });
         }
+
+        const controlsWrapper = headerEl.createDiv({ cls: 'kanban-controls-wrapper' });
+
+        const searchInput = controlsWrapper.createEl('input', {
+            cls: 'kanban-search-input',
+            placeholder: 'Search cards...',
+            value: this.filterText
+        });
+        
+        // Restore focus and cursor position if we were searching
+        if (this.filterText) {
+            searchInput.focus();
+            searchInput.setSelectionRange(this.filterText.length, this.filterText.length);
+        }
+
+        searchInput.addEventListener('input', () => {
+            const val = searchInput.value;
+            this.filterText = val.toLowerCase();
+            this.render();
+            
+            // Re-find the element after render and restore state
+            const newSearchInput = this.contentEl.querySelector('.kanban-search-input') as HTMLInputElement;
+            if (newSearchInput) {
+                newSearchInput.focus();
+                newSearchInput.setSelectionRange(val.length, val.length);
+            }
+        });
 
         const archiveBtn = headerEl.createDiv({ cls: 'kanban-archive-btn', text: '📦', attr: { title: 'View Archive' } });
         archiveBtn.addEventListener('click', () => {
@@ -252,6 +280,11 @@ export class KanbanView extends TextFileView {
             const isDoneLane = lane.title.toLowerCase() === 'done';
 
             lane.cards.forEach((card, index) => {
+                // Apply search filter
+                if (this.filterText && !card.content.toLowerCase().includes(this.filterText)) {
+                    return;
+                }
+
                 const isEditing = this.editingCardId === card.id;
                 const cardEl = cardsContainer.createDiv({ cls: `kanban-card ${isEditing ? 'kanban-card-editing' : ''} ${isDoneLane ? 'is-completed' : ''}` });
                 cardEl.draggable = !isEditing;

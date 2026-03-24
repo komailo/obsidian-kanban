@@ -24,6 +24,27 @@
     flex-grow: 1;
 }
 
+.kanban-controls-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-right: 12px;
+}
+
+.kanban-search-input {
+    background-color: var(--background-secondary);
+    color: var(--text-normal);
+    border: 1px solid var(--background-modifier-border);
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-size: 0.9em;
+    width: 200px;
+}
+
+.kanban-search-input:focus {
+    border-color: var(--interactive-accent);
+}
+
 .kanban-title {
     margin: 0;
     font-size: 1.5em;
