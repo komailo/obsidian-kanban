@@ -1,4 +1,4 @@
-import { TextFileView, WorkspaceLeaf, Menu, Modal, App, Setting, Notice, MarkdownRenderer } from 'obsidian';
+import { TextFileView, WorkspaceLeaf, Menu, Modal, App, Setting, Notice, MarkdownRenderer, normalizePath } from 'obsidian';
 import { KanbanBoard, moveCard, updateCard, duplicateCard, KanbanLane } from './types';
 import { MarkdownParser } from './parser';
 import * as flatpickr from 'flatpickr';
@@ -26,7 +26,7 @@ export class KanbanView extends TextFileView {
     }
 
     getDisplayText() {
-        return this.file ? this.file.basename : 'Kanban Board';
+        return this.file ? this.file.basename : 'Kanban board';
     }
 
     setViewData(data: string, clear: boolean) {
@@ -110,7 +110,7 @@ export class KanbanView extends TextFileView {
             });
         } else {
             const titleEl = titleWrapper.createEl('h1', {
-                text: this.board.title || this.file?.basename || "Untitled Board",
+                text: this.board.title || this.file?.basename || "Untitled board",
                 cls: 'kanban-title'
             });
             titleEl.addEventListener('click', () => {
@@ -146,7 +146,7 @@ export class KanbanView extends TextFileView {
             }
         });
 
-        const archiveBtn = headerEl.createDiv({ cls: 'kanban-archive-btn', text: '📦', attr: { title: 'View Archive' } });
+        const archiveBtn = headerEl.createDiv({ cls: 'kanban-archive-btn', text: '📦', attr: { title: 'View archive' } });
         archiveBtn.addEventListener('click', () => {
             new ArchiveModal(this.app, this.board!).open();
         });
@@ -637,7 +637,7 @@ export class KanbanView extends TextFileView {
             }
         }
 
-        const fullPath = `${folderPath && folderPath !== '/' ? folderPath + '/' : ''}${noteTitle}.md`;
+        const fullPath = normalizePath(`${folderPath && folderPath !== '/' ? folderPath + '/' : ''}${noteTitle}.md`);
 
         // check if exists
         let file = this.app.vault.getAbstractFileByPath(fullPath);
@@ -684,22 +684,15 @@ export class KanbanView extends TextFileView {
 
     private showDatePicker(e: MouseEvent, card: any) {
         const modal = new Modal(this.app);
-        modal.titleEl.setText("Select Date");
+        modal.titleEl.setText("Select date");
         
         const container = modal.contentEl.createDiv({ cls: 'kanban-date-modal' });
         const input = container.createEl('input', { 
             type: 'date', 
             value: card.date || "" 
         });
-        input.style.width = "100%";
-        input.style.padding = "10px";
-        input.style.fontSize = "1.2em";
-        input.style.marginBottom = "20px";
 
         const buttonContainer = modal.contentEl.createDiv({ cls: 'kanban-date-modal-buttons' });
-        buttonContainer.style.display = 'flex';
-        buttonContainer.style.justifyContent = 'flex-end';
-        buttonContainer.style.gap = '10px';
 
         const saveBtn = buttonContainer.createEl('button', { 
             text: 'Save', 
@@ -708,7 +701,6 @@ export class KanbanView extends TextFileView {
         
         saveBtn.addEventListener('click', () => {
             if (input.value && this.board) {
-                console.log("Saving date from modal:", input.value);
                 card.date = input.value;
                 this.updateBoard({ ...this.board });
                 new Notice("Date updated to: " + input.value);
@@ -743,7 +735,10 @@ class BoardSettingsModal extends Modal {
     onOpen() {
         const { contentEl } = this;
         contentEl.empty();
-        contentEl.createEl('h2', { text: 'Board Settings' });
+        
+        new Setting(contentEl)
+            .setName('Board settings')
+            .setHeading();
 
         new Setting(contentEl)
             .setName('Swim lanes')
@@ -811,7 +806,10 @@ class ArchiveModal extends Modal {
     onOpen() {
         const { contentEl } = this;
         contentEl.empty();
-        contentEl.createEl('h2', { text: 'Archived Cards' });
+        
+        new Setting(contentEl)
+            .setName('Archived cards')
+            .setHeading();
 
         const archiveLane = this.board.lanes.find(l => l.title === '*** Archive ***');
         if (!archiveLane || archiveLane.cards.length === 0) {

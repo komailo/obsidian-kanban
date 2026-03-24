@@ -47,6 +47,10 @@ export class KanbanSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		new Setting(containerEl)
+			.setName('Board appearance')
+			.setHeading();
+
+		new Setting(containerEl)
 			.setName('Default lanes')
 			.setDesc('Default swim lanes for new Kanban boards (one per line)')
 			.addTextArea(text => text
@@ -56,6 +60,45 @@ export class KanbanSettingTab extends PluginSettingTab {
 					this.plugin.settings.defaultLanes = value.split('\n').filter(l => l.trim() !== '');
 					await this.plugin.saveSettings();
 				}));
+
+		new Setting(containerEl)
+			.setName('Lane width')
+			.setDesc('Enter a number to set the list width in pixels')
+			.addText(text => {
+				text.inputEl.type = 'number';
+				text.setValue(this.plugin.settings.laneWidth.toString())
+					.onChange(async (value) => {
+						const width = parseInt(value, 10);
+						if (!isNaN(width)) {
+							this.plugin.settings.laneWidth = width;
+							await this.plugin.saveSettings();
+						}
+					});
+			});
+
+		new Setting(containerEl)
+			.setName('Hide tags in card titles')
+			.setDesc('Hide tags from the visual card display')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.hideTagsInTitle)
+				.onChange(async (value) => {
+					this.plugin.settings.hideTagsInTitle = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Show linked page metadata')
+			.setDesc('Display frontmatter metadata from linked pages on the card')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.showLinkedPageMetadata)
+				.onChange(async (value) => {
+					this.plugin.settings.showLinkedPageMetadata = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Card behavior')
+			.setHeading();
 
 		new Setting(containerEl)
 			.setName('New card insertion method')
@@ -82,29 +125,8 @@ export class KanbanSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Hide tags in card titles')
-			.setDesc('When toggled, tags will be hidden from the card display')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.hideTagsInTitle)
-				.onChange(async (value) => {
-					this.plugin.settings.hideTagsInTitle = value;
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(containerEl)
-			.setName('Lane width')
-			.setDesc('Enter a number to set the list width in pixels.')
-			.addText(text => {
-				text.inputEl.type = 'number';
-				text.setValue(this.plugin.settings.laneWidth.toString())
-					.onChange(async (value) => {
-						const width = parseInt(value, 10);
-						if (!isNaN(width)) {
-							this.plugin.settings.laneWidth = width;
-							await this.plugin.saveSettings();
-						}
-					});
-			});
+			.setName('Date and time')
+			.setHeading();
 
 		new Setting(containerEl)
 			.setName('Date trigger')
@@ -128,7 +150,7 @@ export class KanbanSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Link dates to daily notes')
-			.setDesc('When toggled, dates will be rendered as links to daily notes')
+			.setDesc('Render dates as links to daily notes')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.linkDateToDailyNote)
 				.onChange(async (value) => {
@@ -147,8 +169,12 @@ export class KanbanSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
+			.setName('Note creation')
+			.setHeading();
+
+		new Setting(containerEl)
 			.setName('Note template')
-			.setDesc('This template will be used when creating new notes from Kanban cards (path to file)')
+			.setDesc('Template used when creating new notes from Kanban cards (path to file)')
 			.addText(text => text
 				.setValue(this.plugin.settings.newNoteTemplate)
 				.onChange(async (value) => {
@@ -157,18 +183,12 @@ export class KanbanSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Show linked page metadata')
-			.setDesc('Display frontmatter metadata from linked pages on the card')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.showLinkedPageMetadata)
-				.onChange(async (value) => {
-					this.plugin.settings.showLinkedPageMetadata = value;
-					await this.plugin.saveSettings();
-				}));
+			.setName('Archiving')
+			.setHeading();
 
 		new Setting(containerEl)
-			.setName('Append date/time to archived cards')
-			.setDesc('When toggled, archiving a card will automatically append the current date/time to the card.')
+			.setName('Append date and time to archived cards')
+			.setDesc('Automatically append the current date and time when archiving a card')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.appendArchiveDate)
 				.onChange(async (value) => {

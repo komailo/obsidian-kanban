@@ -12,10 +12,13 @@ export class CreateBoardModal extends Modal {
 
     onOpen() {
         const { contentEl } = this;
-        contentEl.createEl('h2', { text: 'Create New Kanban Board' });
+        
+        new Setting(contentEl)
+            .setName('Create new Kanban board')
+            .setHeading();
 
         new Setting(contentEl)
-            .setName('Board Name')
+            .setName('Board name')
             .addText(text => {
                 text.setValue(this.boardName);
                 text.onChange(value => {

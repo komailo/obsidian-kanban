@@ -1,4 +1,4 @@
-import { Plugin, WorkspaceLeaf, TFile } from 'obsidian';
+import { Plugin, WorkspaceLeaf, TFile, normalizePath } from 'obsidian';
 import { KanbanView, KANBAN_VIEW_TYPE } from './view';
 import { MarkdownParser } from './parser';
 import { DEFAULT_SETTINGS, KanbanSettings, KanbanSettingTab } from './settings';
@@ -17,13 +17,13 @@ export default class KanbanPlugin extends Plugin {
 
         this.registerExtensions(['kanban'], KANBAN_VIEW_TYPE);
 
-        this.addRibbonIcon('dice', 'New Kanban Board', async () => {
+        this.addRibbonIcon('dice', 'New Kanban board', async () => {
             await this.createNewBoard();
         });
 
         this.addCommand({
             id: 'open-kanban-view',
-            name: 'Open Kanban View',
+            name: 'Open Kanban view',
             callback: () => {
                 this.activateView();
             }
@@ -31,7 +31,7 @@ export default class KanbanPlugin extends Plugin {
 
         this.addCommand({
             id: 'create-new-kanban-board',
-            name: 'Create New Kanban Board',
+            name: 'Create new Kanban board',
             callback: async () => {
                 await this.createNewBoard();
             }
@@ -48,10 +48,10 @@ export default class KanbanPlugin extends Plugin {
         const { vault, workspace } = this.app;
 
         new CreateBoardModal(this.app, async (boardName: string, createFolder: boolean) => {
-            if (!boardName) boardName = 'Untitled Kanban';
+            if (!boardName) boardName = 'Untitled kanban';
 
             let folderPath = '';
-            let fileName = `${boardName}.kanban`;
+            let fileName = normalizePath(`${boardName}.kanban`);
 
             if (createFolder) {
                 // Check if folder exists, if not, create it
@@ -59,11 +59,9 @@ export default class KanbanPlugin extends Plugin {
                 if (!folderExists) {
                     await vault.createFolder(boardName);
                 }
-                folderPath = `${boardName}/`;
+                folderPath = boardName;
                 // Use the board name for the file as well, just inside the folder
-                fileName = `${folderPath}${boardName}.kanban`;
-            } else {
-                fileName = `${boardName}.kanban`;
+                fileName = normalizePath(`${folderPath}/${boardName}.kanban`);
             }
 
             // Ensure unique filename if it already exists
@@ -71,9 +69,9 @@ export default class KanbanPlugin extends Plugin {
             let counter = 1;
             while (vault.getAbstractFileByPath(finalFileName)) {
                 if (createFolder) {
-                    finalFileName = `${folderPath}${boardName} ${counter}.kanban`;
+                    finalFileName = normalizePath(`${folderPath}/${boardName} ${counter}.kanban`);
                 } else {
-                    finalFileName = `${boardName} ${counter}.kanban`;
+                    finalFileName = normalizePath(`${boardName} ${counter}.kanban`);
                 }
                 counter++;
             }
