@@ -1,11 +1,11 @@
 {
-	"id": "obsidian-kanban",
-	"name": "Obsidian Kanban",
-	"version": "0.1.0",
-	"minAppVersion": "0.15.0",
-	"description": "A modern, feature-rich Kanban board for Obsidian.",
-	"author": "komailo",
-	"authorUrl": "https://github.com/komailo/obsidian-kanban",
-	"fundingUrl": "",
-	"isDesktopOnly": false
+  "id": "obiwan-kanban",
+  "name": "Kanban",
+  "version": "0.1.0",
+  "minAppVersion": "0.15.0",
+  "description": "A modern, feature-rich Kanban board for Obsidian.",
+  "author": "komailo",
+  "authorUrl": "https://github.com/komailo/obsidian-kanban",
+  "fundingUrl": "",
+  "isDesktopOnly": false
 }
