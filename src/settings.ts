@@ -5,7 +5,6 @@ export interface KanbanSettings {
 	defaultLanes: string[];
 	newCardInsertionMethod: 'append' | 'prepend';
 	newLineTrigger: 'enter' | 'shift-enter';
-	showCheckboxes: boolean;
 	hideTagsInTitle: boolean;
 	laneWidth: number;
 	dateTrigger: string;
@@ -22,7 +21,6 @@ export const DEFAULT_SETTINGS: KanbanSettings = {
 	defaultLanes: ['Backlog', 'Todo', 'In Progress', 'Done'],
 	newCardInsertionMethod: 'append',
 	newLineTrigger: 'shift-enter',
-	showCheckboxes: true,
 	hideTagsInTitle: false,
 	laneWidth: 272,
 	dateTrigger: '@today',
@@ -80,16 +78,6 @@ export class KanbanSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.newLineTrigger)
 				.onChange(async (value: 'enter' | 'shift-enter') => {
 					this.plugin.settings.newLineTrigger = value;
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(containerEl)
-			.setName('Display card checkbox')
-			.setDesc('When toggled, a checkbox will be displayed with each card if it starts with - [ ] or - [x]')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.showCheckboxes)
-				.onChange(async (value) => {
-					this.plugin.settings.showCheckboxes = value;
 					await this.plugin.saveSettings();
 				}));
 

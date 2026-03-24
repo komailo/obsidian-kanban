@@ -435,40 +435,33 @@ export class KanbanView extends TextFileView {
                         displayContent = displayContent.replace(/#[^\s#]+/g, '').replace(/\s{2,}/g, ' ').trim();
                     }
 
-                    if (this.plugin.settings.showCheckboxes) {
-                        // Instead of custom parsing the first line, we just render the raw markdown
-                        // and use CSS to style the Obsidian task list items to match the UI.
-                        // We also need to hook into clicks on those rendered checkboxes.
-                        const contentContainer = cardEl.createDiv({ cls: 'kanban-card-content kanban-card-native-checkboxes' });
-                        MarkdownRenderer.renderMarkdown(displayContent, contentContainer, this.file?.path || "", this)
-                            .then(() => {
-                                // Add event listeners to rendered checkboxes to update the card content
-                                const checkboxes = contentContainer.querySelectorAll('input[type="checkbox"].task-list-item-checkbox');
-                                checkboxes.forEach((cb: HTMLInputElement, index) => {
-                                    cb.addEventListener('change', (e) => {
-                                        e.stopPropagation();
+                    // Always render with native checkbox handling
+                    const contentContainer = cardEl.createDiv({ cls: 'kanban-card-content kanban-card-native-checkboxes' });
+                    MarkdownRenderer.renderMarkdown(displayContent, contentContainer, this.file?.path || "", this)
+                        .then(() => {
+                            // Add event listeners to rendered checkboxes to update the card content
+                            const checkboxes = contentContainer.querySelectorAll('input[type="checkbox"].task-list-item-checkbox');
+                            checkboxes.forEach((cb: HTMLInputElement, index) => {
+                                cb.addEventListener('change', (e) => {
+                                    e.stopPropagation();
 
-                                        // Simple string replacement: find the nth instance of `- [ ]` or `- [x]`
-                                        let matchCount = -1;
-                                        const newMark = cb.checked ? 'x' : ' ';
-                                        const newContent = card.content.replace(/- \[(x| )\]/ig, (match) => {
-                                            matchCount++;
-                                            if (matchCount === index) {
-                                                return `- [${newMark}]`;
-                                            }
-                                            return match;
-                                        });
-
-                                        if (this.board && newContent !== card.content) {
-                                            this.updateBoard(updateCard({ ...this.board }, card.id, newContent));
+                                    // Simple string replacement: find the nth instance of `- [ ]` or `- [x]`
+                                    let matchCount = -1;
+                                    const newMark = cb.checked ? 'x' : ' ';
+                                    const newContent = card.content.replace(/- \[(x| )\]/ig, (match) => {
+                                        matchCount++;
+                                        if (matchCount === index) {
+                                            return `- [${newMark}]`;
                                         }
+                                        return match;
                                     });
+
+                                    if (this.board && newContent !== card.content) {
+                                        this.updateBoard(updateCard({ ...this.board }, card.id, newContent));
+                                    }
                                 });
                             });
-                    } else {
-                        const contentContainer = cardEl.createDiv({ cls: 'kanban-card-content' });
-                        MarkdownRenderer.renderMarkdown(displayContent, contentContainer, this.file?.path || "", this);
-                    }
+                        });
 
                     if (this.plugin.settings.showLinkedPageMetadata) {
                         const linkMatch = displayContent.match(/\[\[([^\]|]+)(?:\|.*)?\]\]/);
