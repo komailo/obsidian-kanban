@@ -266,14 +266,14 @@ export class KanbanView extends TextFileView {
                         }
                     });
 
-                    cardEl.addEventListener('contextmenu', (e) => {
+                    cardEl.addEventListener('contextmenu', (e: MouseEvent) => {
                         e.preventDefault();
                         const menu = new Menu();
 
                         // Group 1: Edit & New Note
                         menu.addItem((item) => {
-                            item.setTitle("Edit card")
-                                .setIcon("edit")
+                            item.setIcon("lucide-edit")
+                                .setTitle("Edit card")
                                 .onClick(() => {
                                     this.editingCardId = card.id;
                                     this.render();
@@ -281,8 +281,8 @@ export class KanbanView extends TextFileView {
                         });
 
                         menu.addItem((item) => {
-                            item.setTitle("New note from card")
-                                .setIcon("document")
+                            item.setIcon("lucide-file-plus-2")
+                                .setTitle("New note from card")
                                 .onClick(async () => {
                                     await this.createNoteFromCard(card, lane);
                                 });
@@ -292,8 +292,8 @@ export class KanbanView extends TextFileView {
 
                         // Group 2: Duplicate, Archive, Delete
                         menu.addItem((item) => {
-                            item.setTitle("Duplicate card")
-                                .setIcon("copy")
+                            item.setIcon("lucide-copy")
+                                .setTitle("Duplicate card")
                                 .onClick(() => {
                                     if (this.board) {
                                         this.updateBoard(duplicateCard({ ...this.board }, card.id));
@@ -302,8 +302,8 @@ export class KanbanView extends TextFileView {
                         });
 
                         menu.addItem((item) => {
-                            item.setTitle("Archive card")
-                                .setIcon("box")
+                            item.setIcon("lucide-archive")
+                                .setTitle("Archive card")
                                 .onClick(() => {
                                     if (this.board) {
                                         let archiveLane = this.board.lanes.find(l => l.title === '*** Archive ***');
@@ -326,8 +326,8 @@ export class KanbanView extends TextFileView {
                         });
 
                         menu.addItem((item) => {
-                            item.setTitle("Delete card")
-                                .setIcon("trash")
+                            item.setIcon("lucide-trash-2")
+                                .setTitle("Delete card")
                                 .onClick(() => {
                                     if (this.board) {
                                         lane.cards = lane.cards.filter(c => c.id !== card.id);
@@ -340,8 +340,8 @@ export class KanbanView extends TextFileView {
 
                         // Group 3: Add Date
                         menu.addItem((item) => {
-                            item.setTitle("Add date")
-                                .setIcon("calendar")
+                            item.setIcon("lucide-calendar-days")
+                                .setTitle("Add date")
                                 .onClick(() => {
                                     if (this.board) {
                                         const dateTrigger = this.plugin.settings.dateTrigger || '@today';
