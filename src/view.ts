@@ -1,5 +1,5 @@
 import { TextFileView, WorkspaceLeaf, Menu, Modal, App, Setting, Notice, MarkdownRenderer } from 'obsidian';
-import { KanbanBoard, moveCard, updateCard, KanbanLane } from './types';
+import { KanbanBoard, moveCard, updateCard, duplicateCard, KanbanLane } from './types';
 import { MarkdownParser } from './parser';
 
 export const KANBAN_VIEW_TYPE = 'kanban-view';
@@ -270,6 +270,37 @@ export class KanbanView extends TextFileView {
                         e.preventDefault();
                         const menu = new Menu();
 
+                        // Group 1: Edit & New Note
+                        menu.addItem((item) => {
+                            item.setTitle("Edit card")
+                                .setIcon("edit")
+                                .onClick(() => {
+                                    this.editingCardId = card.id;
+                                    this.render();
+                                });
+                        });
+
+                        menu.addItem((item) => {
+                            item.setTitle("New note from card")
+                                .setIcon("document")
+                                .onClick(async () => {
+                                    await this.createNoteFromCard(card, lane);
+                                });
+                        });
+
+                        menu.addSeparator();
+
+                        // Group 2: Duplicate, Archive, Delete
+                        menu.addItem((item) => {
+                            item.setTitle("Duplicate card")
+                                .setIcon("copy")
+                                .onClick(() => {
+                                    if (this.board) {
+                                        this.updateBoard(duplicateCard({ ...this.board }, card.id));
+                                    }
+                                });
+                        });
+
                         menu.addItem((item) => {
                             item.setTitle("Archive card")
                                 .setIcon("box")
@@ -295,20 +326,29 @@ export class KanbanView extends TextFileView {
                         });
 
                         menu.addItem((item) => {
-                            item.setTitle("Create note from card")
-                                .setIcon("document")
-                                .onClick(async () => {
-                                    await this.createNoteFromCard(card, lane);
-                                });
-                        });
-
-                        menu.addItem((item) => {
                             item.setTitle("Delete card")
                                 .setIcon("trash")
                                 .onClick(() => {
                                     if (this.board) {
                                         lane.cards = lane.cards.filter(c => c.id !== card.id);
                                         this.updateBoard({ ...this.board });
+                                    }
+                                });
+                        });
+
+                        menu.addSeparator();
+
+                        // Group 3: Add Date
+                        menu.addItem((item) => {
+                            item.setTitle("Add date")
+                                .setIcon("calendar")
+                                .onClick(() => {
+                                    if (this.board) {
+                                        const dateTrigger = this.plugin.settings.dateTrigger || '@today';
+                                        const newContent = card.content + (card.content.endsWith(' ') ? '' : ' ') + dateTrigger;
+                                        this.updateBoard(updateCard({ ...this.board }, card.id, newContent));
+                                        this.editingCardId = card.id;
+                                        this.render();
                                     }
                                 });
                         });

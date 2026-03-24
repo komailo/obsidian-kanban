@@ -61,3 +61,21 @@ export function updateCard(board: KanbanBoard, cardId: string, newContent: strin
     }
     return board;
 }
+
+export function duplicateCard(board: KanbanBoard, cardId: string): KanbanBoard {
+    for (const lane of board.lanes) {
+        const index = lane.cards.findIndex(c => c.id === cardId);
+        if (index !== -1) {
+            const card = lane.cards[index];
+            if (card) {
+                const newCard = {
+                    id: Math.random().toString(36).substring(2, 11),
+                    content: card.content
+                };
+                lane.cards.splice(index + 1, 0, newCard);
+            }
+            break;
+        }
+    }
+    return board;
+}
