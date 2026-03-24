@@ -230,15 +230,30 @@
 }
 
 .kanban-card-native-checkboxes ul {
-    padding-inline-start: 2em;
+    padding-inline-start: 1.5em;
     margin-top: 0.25em;
     margin-bottom: 0.25em;
+    list-style: none;
+}
+
+.kanban-card-native-checkboxes li.task-list-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    margin-bottom: 4px;
+}
+
+.kanban-card-native-checkboxes input.task-list-item-checkbox {
+    margin: 0.3em 8px 0 0 !important;
+    flex-shrink: 0;
+    position: relative;
+    top: 0;
 }
 
 /* Top-level lists shouldn't be indented as much so checkboxes align near the edge */
 .kanban-card-native-checkboxes > ul,
 .kanban-card-native-checkboxes > div > ul {
-    padding-inline-start: 1.5em; /* Obsidian natively pulls checkboxes back by exactly this amount (-1.5em usually) */
+    padding-inline-start: 1.5em; 
 }
 
 .kanban-card-native-checkboxes p {
