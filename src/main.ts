@@ -60,9 +60,9 @@ export default class KanbanPlugin extends Plugin {
                     await vault.createFolder(boardName);
                 }
                 folderPath = `${boardName}/`;
-                // To support folder notes nicely, name the file as index.kanban
-                // Wait, if it's named index.kanban, users can easily know it represents the folder.
-                fileName = `${folderPath}index.kanban`;
+                // To support folder notes nicely, name the file as _index.kanban
+                // This keeps it at the top of the folder listing
+                fileName = `${folderPath}_index.kanban`;
             } else {
                 fileName = `${boardName}.kanban`;
             }
@@ -72,7 +72,7 @@ export default class KanbanPlugin extends Plugin {
             let counter = 1;
             while (vault.getAbstractFileByPath(finalFileName)) {
                 if (createFolder) {
-                    finalFileName = `${folderPath}index ${counter}.kanban`;
+                    finalFileName = `${folderPath}_index ${counter}.kanban`;
                 } else {
                     finalFileName = `${boardName} ${counter}.kanban`;
                 }
