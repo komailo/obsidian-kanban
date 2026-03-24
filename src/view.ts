@@ -316,7 +316,28 @@ export class KanbanView extends TextFileView {
                         menu.showAtMouseEvent(e);
                     });
 
-                    cardEl.addEventListener('click', () => {
+                    cardEl.addEventListener('click', (e: MouseEvent) => {
+                        const target = e.target as HTMLElement;
+                        
+                        // Handle links
+                        const anchor = target.closest('a');
+                        if (anchor) {
+                            const href = anchor.getAttr('data-href') || anchor.getAttr('href');
+                            if (href) {
+                                if (anchor.hasClass('internal-link')) {
+                                    this.app.workspace.openLinkText(href, this.file?.path || "", e.ctrlKey || e.metaKey || e.button === 1);
+                                } else if (anchor.hasClass('external-link')) {
+                                    window.open(href);
+                                }
+                            }
+                            return;
+                        }
+
+                        // If we're clicking a checkbox, don't enter edit mode
+                        if (target.closest('.task-list-item-checkbox') || target.closest('input[type="checkbox"]')) {
+                            return;
+                        }
+
                         this.editingCardId = card.id;
                         this.render();
                     });
