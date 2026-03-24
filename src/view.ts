@@ -1,6 +1,7 @@
 import { TextFileView, WorkspaceLeaf, Menu, Modal, App, Setting, Notice, MarkdownRenderer } from 'obsidian';
 import { KanbanBoard, moveCard, updateCard, duplicateCard, KanbanLane } from './types';
 import { MarkdownParser } from './parser';
+import * as flatpickr from 'flatpickr';
 
 export const KANBAN_VIEW_TYPE = 'kanban-view';
 
@@ -347,26 +348,38 @@ export class KanbanView extends TextFileView {
                         menu.addSeparator();
 
                         // Group 3: Add Date
+                        const isToday = card.date === window.moment().format('YYYY-MM-DD');
+                        if (!isToday) {
+                            menu.addItem((item) => {
+                                item.setIcon("lucide-calendar-check")
+                                    .setTitle(card.date ? "Switch to today" : "Add today")
+                                    .onClick(() => {
+                                        if (this.board) {
+                                            card.date = window.moment().format('YYYY-MM-DD');
+                                            this.updateBoard({ ...this.board });
+                                            new Notice("Date set to today: " + card.date);
+                                        }
+                                    });
+                            });
+                        }
+
                         menu.addItem((item) => {
                             item.setIcon("lucide-calendar-days")
                                 .setTitle(card.date ? "Change date" : "Add date")
-                                .onClick(() => {
-                                    if (this.board) {
-                                        const df = this.plugin.settings.dateFormat || 'YYYY-MM-DD';
-                                        card.date = window.moment().format('YYYY-MM-DD');
-                                        this.updateBoard({ ...this.board });
-                                    }
+                                .onClick((evt: MouseEvent) => {
+                                    this.showDatePicker(evt, card);
                                 });
                         });
 
                         if (card.date) {
                             menu.addItem((item) => {
-                                item.setIcon("lucide-x")
+                                item.setIcon("lucide-calendar-x")
                                     .setTitle("Remove date")
                                     .onClick(() => {
                                         if (this.board) {
                                             card.date = undefined;
                                             this.updateBoard({ ...this.board });
+                                            new Notice("Date removed");
                                         }
                                     });
                             });
@@ -489,6 +502,11 @@ export class KanbanView extends TextFileView {
 
                     if (card.date) {
                         const dateContainer = cardEl.createDiv({ cls: 'kanban-card-date' });
+                        dateContainer.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            this.showDatePicker(e, card);
+                        });
+                        
                         let dateText = card.date;
                         if (this.plugin.settings.showRelativeDate) {
                             const m = window.moment(card.date, 'YYYY-MM-DD');
@@ -629,6 +647,53 @@ export class KanbanView extends TextFileView {
         } catch (e: any) {
             new Notice("Failed to create note: " + e.message);
         }
+    }
+
+    private showDatePicker(e: MouseEvent, card: any) {
+        const modal = new Modal(this.app);
+        modal.titleEl.setText("Select Date");
+        
+        const container = modal.contentEl.createDiv({ cls: 'kanban-date-modal' });
+        const input = container.createEl('input', { 
+            type: 'date', 
+            value: card.date || "" 
+        });
+        input.style.width = "100%";
+        input.style.padding = "10px";
+        input.style.fontSize = "1.2em";
+        input.style.marginBottom = "20px";
+
+        const buttonContainer = modal.contentEl.createDiv({ cls: 'kanban-date-modal-buttons' });
+        buttonContainer.style.display = 'flex';
+        buttonContainer.style.justifyContent = 'flex-end';
+        buttonContainer.style.gap = '10px';
+
+        const saveBtn = buttonContainer.createEl('button', { 
+            text: 'Save', 
+            cls: 'mod-cta' 
+        });
+        
+        saveBtn.addEventListener('click', () => {
+            if (input.value && this.board) {
+                console.log("Saving date from modal:", input.value);
+                card.date = input.value;
+                this.updateBoard({ ...this.board });
+                new Notice("Date updated to: " + input.value);
+                modal.close();
+            } else if (!input.value && this.board) {
+                card.date = undefined;
+                this.updateBoard({ ...this.board });
+                modal.close();
+            }
+        });
+
+        const cancelBtn = buttonContainer.createEl('button', { 
+            text: 'Cancel'
+        });
+        cancelBtn.addEventListener('click', () => modal.close());
+
+        modal.open();
+        input.focus();
     }
 }
 

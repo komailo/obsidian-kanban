@@ -127,7 +127,8 @@ export class MarkdownParser {
 
         return {
             id: Math.random().toString(36).substring(2, 11),
-            content: content.trimEnd()
+            content: content.trimEnd(),
+            date: date
         };
     }
 
@@ -155,7 +156,9 @@ export class MarkdownParser {
             for (const card of lane.cards) {
                 let cardContent = card.content;
                 if (card.date) {
-                    cardContent = cardContent.split('\n')[0] + ` ${dateTrigger}${card.date}` + (cardContent.split('\n').slice(1).length > 0 ? '\n' + cardContent.split('\n').slice(1).join('\n') : '');
+                    const firstLine = cardContent.split('\n')[0];
+                    const rest = cardContent.split('\n').slice(1).join('\n');
+                    cardContent = firstLine + ` ${dateTrigger}${card.date}` + (rest ? '\n' + rest : '');
                 }
 
                 const cardLines = cardContent.split('\n');
