@@ -41,7 +41,6 @@ export default class KanbanPlugin extends Plugin {
     }
 
     onunload() {
-        // Workspace handles detaching leaves for us usually, but we can be explicit
     }
 
     async createNewBoard() {
@@ -103,28 +102,6 @@ export default class KanbanPlugin extends Plugin {
 
         if (leaf) {
             workspace.revealLeaf(leaf);
-
-            // For now, let's load some sample data if the view is empty
-            const view = leaf.view as KanbanView;
-            if (view && !view.board) {
-                const sampleMarkdown = `
-# My Project Board
-
-## Backlog
-
-## Todo
-- [ ] Task 1
-- [ ] Task 2
-
-## In Progress
-- [ ] Task 3 (in progress)
-
-## Done
-- [x] Task 4
-`;
-                const board = MarkdownParser.parse(sampleMarkdown);
-                view.setBoard(board);
-            }
         }
     }
 

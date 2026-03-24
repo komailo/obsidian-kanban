@@ -2,11 +2,12 @@ import { TextFileView, WorkspaceLeaf, Menu, Modal, App, Setting, Notice, Markdow
 import { KanbanBoard, moveCard, updateCard, duplicateCard, KanbanLane } from './types';
 import { MarkdownParser } from './parser';
 import * as flatpickr from 'flatpickr';
+import KanbanPlugin from './main';
 
 export const KANBAN_VIEW_TYPE = 'kanban-view';
 
 export class KanbanView extends TextFileView {
-    plugin: any; // We'll use any or import KanbanPlugin, let's use any for now to avoid circular import issues if any, or better, import it
+    plugin: KanbanPlugin;
     board: KanbanBoard | null = null;
     editingCardId: string | null = null;
     editingLaneId: string | null = null;
