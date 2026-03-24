@@ -558,7 +558,12 @@ export class KanbanView extends TextFileView {
                 new Notice("Failed to read template file: " + templatePath);
             }
         } else {
-            content = `# ${noteTitle}\n\n`;
+            // Use the first line as the filename/title, and only include subsequent lines in the note body
+            const lines = card.content.split('\n');
+            content = lines.slice(1).join('\n');
+            if (content.length > 0) {
+                content += '\n';
+            }
         }
 
         try {
@@ -570,7 +575,8 @@ export class KanbanView extends TextFileView {
                 this.updateBoard(updateCard({ ...this.board }, card.id, newContent));
             }
 
-            this.app.workspace.getLeaf(false).openFile(file as any);
+            const leaf = this.app.workspace.getLeaf('tab');
+            await leaf.openFile(file as any, { state: { mode: 'source' } });
         } catch (e: any) {
             new Notice("Failed to create note: " + e.message);
         }
