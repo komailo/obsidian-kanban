@@ -510,7 +510,7 @@ export class KanbanView extends TextFileView {
         let noteTitle = card.content.split('\n')[0].replace(/[\\/:"*?<>|#]/g, '').trim() || `Card ${card.id}`;
         if (noteTitle.length > 50) noteTitle = noteTitle.substring(0, 50).trim();
 
-        const folderPath = this.plugin.settings.newNoteFolder || "";
+        const folderPath = this.file?.parent?.path || "";
         const templatePath = this.plugin.settings.newNoteTemplate || "";
 
         let folder = this.app.vault.getAbstractFileByPath(folderPath || '/');
@@ -523,7 +523,7 @@ export class KanbanView extends TextFileView {
             }
         }
 
-        const fullPath = `${folderPath ? folderPath + '/' : ''}${noteTitle}.md`;
+        const fullPath = `${folderPath && folderPath !== '/' ? folderPath + '/' : ''}${noteTitle}.md`;
 
         // check if exists
         let file = this.app.vault.getAbstractFileByPath(fullPath);

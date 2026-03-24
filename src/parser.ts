@@ -87,10 +87,11 @@ export class MarkdownParser {
         const lines = content.split('\n');
         if (lines.length > 1) {
             // Find the minimum indentation of the subsequent lines
-            let minIndent = null;
+            let minIndent: number | null = null;
             for (let i = 1; i < lines.length; i++) {
-                if (lines[i].trim() === '') continue;
-                const match = lines[i].match(/^\s+/);
+                const line = lines[i];
+                if (line === undefined || line.trim() === '') continue;
+                const match = line.match(/^\s+/);
                 const indent = match ? match[0].length : 0;
                 if (minIndent === null || indent < minIndent) {
                     minIndent = indent;
@@ -98,8 +99,9 @@ export class MarkdownParser {
             }
             if (minIndent !== null && minIndent > 0) {
                 for (let i = 1; i < lines.length; i++) {
-                    if (lines[i].length >= minIndent) {
-                        lines[i] = lines[i].substring(minIndent);
+                    const line = lines[i];
+                    if (line !== undefined && line.length >= minIndent) {
+                        lines[i] = line.substring(minIndent);
                     }
                 }
             }

@@ -12,7 +12,6 @@ export interface KanbanSettings {
 	dateFormat: string;
 	linkDateToDailyNote: boolean;
 	showRelativeDate: boolean;
-	newNoteFolder: string;
 	newNoteTemplate: string;
 	showLinkedPageMetadata: boolean;
 	appendArchiveDate: boolean;
@@ -30,7 +29,6 @@ export const DEFAULT_SETTINGS: KanbanSettings = {
 	dateFormat: 'YYYY-MM-DD',
 	linkDateToDailyNote: false,
 	showRelativeDate: true,
-	newNoteFolder: '',
 	newNoteTemplate: '',
 	showLinkedPageMetadata: false,
 	appendArchiveDate: false,
@@ -167,16 +165,6 @@ export class KanbanSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.newNoteTemplate)
 				.onChange(async (value) => {
 					this.plugin.settings.newNoteTemplate = value;
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(containerEl)
-			.setName('Note folder')
-			.setDesc('Notes created from cards will be placed here. If blank, placed in vault root.')
-			.addText(text => text
-				.setValue(this.plugin.settings.newNoteFolder)
-				.onChange(async (value) => {
-					this.plugin.settings.newNoteFolder = value;
 					await this.plugin.saveSettings();
 				}));
 
