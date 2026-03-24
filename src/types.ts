@@ -2,6 +2,7 @@ export interface KanbanCard {
     id: string;
     content: string; // The raw markdown content of the card
     metadata?: Record<string, any>;
+    date?: string; // Optional date associated with the card
 }
 
 export interface KanbanLane {
@@ -12,6 +13,8 @@ export interface KanbanLane {
 
 export interface KanbanBoardSettings {
     lanes?: string[]; // The defined lane titles for this board
+    dateTrigger?: string;
+    dateFormat?: string;
 }
 
 export interface KanbanBoard {

@@ -29,6 +29,10 @@ export class KanbanView extends TextFileView {
 
     setViewData(data: string, clear: boolean) {
         this.board = MarkdownParser.parse(data);
+        if (!this.board.settings) this.board.settings = {};
+        if (!this.board.settings.dateTrigger) this.board.settings.dateTrigger = this.plugin.settings.dateTrigger;
+        if (!this.board.settings.dateFormat) this.board.settings.dateFormat = this.plugin.settings.dateFormat;
+        
         if (clear) {
             this.editingCardId = null;
             this.editingLaneId = null;
@@ -57,6 +61,10 @@ export class KanbanView extends TextFileView {
     async onOpen() { }
 
     private updateBoard(newBoard: KanbanBoard) {
+        if (!newBoard.settings) newBoard.settings = {};
+        if (!newBoard.settings.dateTrigger) newBoard.settings.dateTrigger = this.plugin.settings.dateTrigger;
+        if (!newBoard.settings.dateFormat) newBoard.settings.dateFormat = this.plugin.settings.dateFormat;
+        
         this.board = newBoard;
         this.requestSave();
         this.render();
@@ -341,17 +349,28 @@ export class KanbanView extends TextFileView {
                         // Group 3: Add Date
                         menu.addItem((item) => {
                             item.setIcon("lucide-calendar-days")
-                                .setTitle("Add date")
+                                .setTitle(card.date ? "Change date" : "Add date")
                                 .onClick(() => {
                                     if (this.board) {
-                                        const dateTrigger = this.plugin.settings.dateTrigger || '@today';
-                                        const newContent = card.content + (card.content.endsWith(' ') ? '' : ' ') + dateTrigger;
-                                        this.updateBoard(updateCard({ ...this.board }, card.id, newContent));
-                                        this.editingCardId = card.id;
-                                        this.render();
+                                        const df = this.plugin.settings.dateFormat || 'YYYY-MM-DD';
+                                        card.date = window.moment().format('YYYY-MM-DD');
+                                        this.updateBoard({ ...this.board });
                                     }
                                 });
                         });
+
+                        if (card.date) {
+                            menu.addItem((item) => {
+                                item.setIcon("lucide-x")
+                                    .setTitle("Remove date")
+                                    .onClick(() => {
+                                        if (this.board) {
+                                            card.date = undefined;
+                                            this.updateBoard({ ...this.board });
+                                        }
+                                    });
+                            });
+                        }
 
                         menu.showAtMouseEvent(e);
                     });
@@ -436,41 +455,6 @@ export class KanbanView extends TextFileView {
                 } else {
                     let displayContent = card.content;
 
-                    if (this.plugin.settings.showRelativeDate || this.plugin.settings.linkDateToDailyNote) {
-                        displayContent = displayContent.replace(/(?<!\[\[)(\b\d{4}-\d{2}-\d{2}\b)(?!\]\])/g, (match, p1) => {
-                            let replacement = p1;
-                            if (this.plugin.settings.linkDateToDailyNote) {
-                                replacement = `[[${p1}]]`;
-                            }
-                            if (this.plugin.settings.showRelativeDate) {
-                                const m = window.moment(p1, 'YYYY-MM-DD');
-                                if (m.isValid()) {
-                                    replacement += ` (${m.calendar(null, {
-                                        sameDay: '[Today]',
-                                        nextDay: '[Tomorrow]',
-                                        nextWeek: 'dddd',
-                                        lastDay: '[Yesterday]',
-                                        lastWeek: '[Last] dddd',
-                                        sameElse: 'fromNow'
-                                    })})`; // calendar or fromNow, fromNow is easier: m.fromNow()
-                                    // Actually fromNow() is better for standard relative
-                                    replacement = replacement.replace(/\(.+?\)$/, `(${m.fromNow()})`);
-                                }
-                            }
-                            return replacement;
-                        });
-
-                        if (this.plugin.settings.showRelativeDate) {
-                            displayContent = displayContent.replace(/\[\[(\d{4}-\d{2}-\d{2})\]\](?!\s*\()/g, (match, p1) => {
-                                const m = window.moment(p1, 'YYYY-MM-DD');
-                                if (m.isValid()) {
-                                    return `${match} (${m.fromNow()})`;
-                                }
-                                return match;
-                            });
-                        }
-                    }
-
                     if (this.plugin.settings.hideTagsInTitle) {
                         displayContent = displayContent.replace(/#[^\s#]+/g, '').replace(/\s{2,}/g, ' ').trim();
                     }
@@ -502,6 +486,31 @@ export class KanbanView extends TextFileView {
                                 });
                             });
                         });
+
+                    if (card.date) {
+                        const dateContainer = cardEl.createDiv({ cls: 'kanban-card-date' });
+                        let dateText = card.date;
+                        if (this.plugin.settings.showRelativeDate) {
+                            const m = window.moment(card.date, 'YYYY-MM-DD');
+                            if (m.isValid()) {
+                                dateText = m.fromNow();
+                            }
+                        }
+                        
+                        if (this.plugin.settings.linkDateToDailyNote) {
+                            const link = dateContainer.createEl('a', {
+                                cls: 'internal-link kanban-card-date-link',
+                                text: dateText,
+                                attr: { 'data-href': card.date }
+                            });
+                            link.addEventListener('click', (e) => {
+                                e.stopPropagation();
+                                this.app.workspace.openLinkText(card.date!, this.file?.path || "", e.ctrlKey || e.metaKey || e.button === 1);
+                            });
+                        } else {
+                            dateContainer.createSpan({ text: dateText });
+                        }
+                    }
 
                     if (this.plugin.settings.showLinkedPageMetadata) {
                         const linkMatch = displayContent.match(/\[\[([^\]|]+)(?:\|.*)?\]\]/);

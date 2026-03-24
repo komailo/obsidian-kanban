@@ -21,7 +21,9 @@ export class MarkdownParser {
             try {
                 const yaml = parseYaml(match[1]);
                 board.settings = {
-                    lanes: yaml.lanes
+                    lanes: yaml.lanes,
+                    dateTrigger: yaml.dateTrigger,
+                    dateFormat: yaml.dateFormat
                 };
                 if (yaml.title) board.title = yaml.title;
             } catch (e) {
@@ -50,7 +52,7 @@ export class MarkdownParser {
             if (node.type === 'list' && currentLane) {
                 for (const listItem of node.children) {
                     if (listItem.type === 'listItem') {
-                        currentLane.cards.push(this.parseCard(listItem, markdown));
+                        currentLane.cards.push(this.parseCard(listItem, markdown, board));
                     }
                 }
             }
@@ -69,7 +71,7 @@ export class MarkdownParser {
         return board;
     }
 
-    private static parseCard(listItem: ListItem, rawMarkdown: string): KanbanCard {
+    private static parseCard(listItem: ListItem, rawMarkdown: string, board: KanbanBoard): KanbanCard {
         // Extract the exact substring from the raw markdown using position info
         let content = '';
         if (listItem.position && listItem.position.start && listItem.position.end) {
@@ -82,6 +84,21 @@ export class MarkdownParser {
         content = content.replace(/^[-*+]\s+/, '');
         content = content.replace(/^\d+\.\s+/, '');
         content = content.replace(/^\[[ xX/]\]\s*/, '');
+
+        // Extract date
+        const dateTrigger = board.settings?.dateTrigger || '@today'; // default if not in frontmatter
+        const dateFormat = board.settings?.dateFormat || 'YYYY-MM-DD';
+        
+        // Escape dateTrigger for regex
+        const escapedTrigger = dateTrigger.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        // Simple regex for YYYY-MM-DD or [[YYYY-MM-DD]]
+        const dateRegex = new RegExp(`${escapedTrigger}(\\d{4}-\\d{2}-\\d{2})|${escapedTrigger}\\[\\[(\\d{4}-\\d{2}-\\d{2})\\]\\]`, 'g');
+        
+        let date: string | undefined = undefined;
+        content = content.replace(dateRegex, (match, p1, p2) => {
+            date = p1 || p2;
+            return '';
+        }).trim();
 
         // Re-align indentation for inner elements
         const lines = content.split('\n');
@@ -121,6 +138,9 @@ export class MarkdownParser {
         if (board.lanes.length > 0) {
             yaml.lanes = board.lanes.map(l => l.title);
         }
+        if (board.settings?.dateTrigger) yaml.dateTrigger = board.settings.dateTrigger;
+        if (board.settings?.dateFormat) yaml.dateFormat = board.settings.dateFormat;
+        
         markdown += stringifyYaml(yaml);
         markdown += '---\n\n';
 
@@ -128,10 +148,17 @@ export class MarkdownParser {
             markdown += `# ${board.title}\n\n`;
         }
 
+        const dateTrigger = board.settings?.dateTrigger || '@today';
+
         for (const lane of board.lanes) {
             markdown += `## ${lane.title}\n\n`;
             for (const card of lane.cards) {
-                const cardLines = card.content.split('\n');
+                let cardContent = card.content;
+                if (card.date) {
+                    cardContent = cardContent.split('\n')[0] + ` ${dateTrigger}${card.date}` + (cardContent.split('\n').slice(1).length > 0 ? '\n' + cardContent.split('\n').slice(1).join('\n') : '');
+                }
+
+                const cardLines = cardContent.split('\n');
                 if (cardLines.length === 1) {
                     markdown += `- ${cardLines[0]}\n`;
                 } else {

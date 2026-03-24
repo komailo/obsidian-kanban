@@ -271,3 +271,22 @@
     border: 2px dashed var(--interactive-accent);
     border-radius: 4px;
 }
+
+.kanban-card-date {
+    font-size: 0.8em;
+    color: var(--text-muted);
+    background-color: var(--background-secondary-alt);
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-top: 6px;
+    display: inline-block;
+}
+
+.kanban-card-date-link {
+    color: var(--text-accent);
+    text-decoration: none;
+}
+
+.kanban-card-date-link:hover {
+    text-decoration: underline;
+}
