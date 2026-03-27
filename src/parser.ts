@@ -19,7 +19,12 @@ export class MarkdownParser {
         const match = markdown.match(frontmatterRegex);
         if (match && match[1]) {
             try {
-                const yaml = parseYaml(match[1]);
+                const yaml = parseYaml(match[1]) as {
+                    lanes?: string[];
+                    dateTrigger?: string;
+                    dateFormat?: string;
+                    title?: string;
+                };
                 board.settings = {
                     lanes: yaml.lanes,
                     dateTrigger: yaml.dateTrigger,
@@ -94,7 +99,7 @@ export class MarkdownParser {
         const dateRegex = new RegExp(`${escapedTrigger}(\\d{4}-\\d{2}-\\d{2})|${escapedTrigger}\\[\\[(\\d{4}-\\d{2}-\\d{2})\\]\\]`, 'g');
         
         let date: string | undefined = undefined;
-        content = content.replace(dateRegex, (match, p1, p2) => {
+        content = content.replace(dateRegex, (match, p1: string | undefined, p2: string | undefined) => {
             date = p1 || p2;
             return '';
         }).trim();

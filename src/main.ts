@@ -1,4 +1,4 @@
-import { Plugin, WorkspaceLeaf, TFile, normalizePath } from 'obsidian';
+import { Plugin, WorkspaceLeaf, normalizePath } from 'obsidian';
 import { KanbanView, KANBAN_VIEW_TYPE } from './view';
 import { DEFAULT_SETTINGS, KanbanSettings, KanbanSettingTab } from './settings';
 import { CreateBoardModal } from './CreateBoardModal';
@@ -24,7 +24,7 @@ export default class KanbanPlugin extends Plugin {
             id: 'open-view',
             name: 'Open board',
             callback: () => {
-                this.activateView();
+                void this.activateView();
             }
         });
 
@@ -100,7 +100,7 @@ export default class KanbanPlugin extends Plugin {
         }
 
         if (leaf) {
-            workspace.revealLeaf(leaf);
+            void workspace.revealLeaf(leaf);
         }
     }
 

@@ -54,9 +54,9 @@ export class KanbanSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Default lanes')
-			.setDesc('Default swim lanes for new Kanban boards (one per line)')
+			.setDesc('Default swim lanes for new kanban boards (one per line)')
 			.addTextArea(text => text
-				.setPlaceholder('Backlog\nTodo\nIn Progress\nDone')
+				.setPlaceholder('Backlog\ntodo\nin progress\ndone')
 				.setValue(this.plugin.settings.defaultLanes.join('\n'))
 				.onChange(async (value) => {
 					this.plugin.settings.defaultLanes = value.split('\n').filter(l => l.trim() !== '');
@@ -176,7 +176,7 @@ export class KanbanSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Note template')
-			.setDesc('Template used when creating new notes from Kanban cards (path to file)')
+			.setDesc('Template for new notes')
 			.addText(text => text
 				.setValue(this.plugin.settings.newNoteTemplate)
 				.onChange(async (value) => {

@@ -1,7 +1,7 @@
 export interface KanbanCard {
     id: string;
     content: string; // The raw markdown content of the card
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
     date?: string; // Optional date associated with the card
 }
 

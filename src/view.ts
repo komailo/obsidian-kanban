@@ -471,7 +471,7 @@ export class KanbanView extends TextFileView {
                             const href = anchor.getAttr('data-href') || anchor.getAttr('href');
                             if (href) {
                                 if (anchor.hasClass('internal-link')) {
-                                    this.app.workspace.openLinkText(href, this.file?.path || "", e.ctrlKey || e.metaKey || e.button === 1);
+                                    void this.app.workspace.openLinkText(href, this.file?.path || "", e.ctrlKey || e.metaKey || e.button === 1);
                                 } else if (anchor.hasClass('external-link')) {
                                     window.open(href);
                                 }
@@ -596,8 +596,7 @@ export class KanbanView extends TextFileView {
                             });
                             link.addEventListener('click', (e) => {
                                 e.stopPropagation();
-                                this.app.workspace.openLinkText(card.date!, this.file?.path || "", e.ctrlKey || e.metaKey || e.button === 1);
-                            });
+                                void this.app.workspace.openLinkText(card.date!, this.file?.path || "", e.ctrlKey || e.metaKey || e.button === 1);                            });
                         } else {
                             dateContainer.createSpan({ text: dateText });
                         }
@@ -785,7 +784,7 @@ class BoardSettingsModal extends Modal {
             .setName('Swim lanes')
             .setDesc('Configure the lanes for this board (one per line). Reordering the lines will reorder the lanes.')
             .addTextArea(text => {
-                text.setPlaceholder('Backlog\nTodo\nIn Progress\nDone')
+                text.setPlaceholder('Backlog\ntodo\nin progress\ndone')
                     .setValue(this.board.lanes.map(l => l.title).join('\n'))
                     .onChange((value) => {
                         const newTitles = value.split('\n').filter(t => t.trim() !== '');

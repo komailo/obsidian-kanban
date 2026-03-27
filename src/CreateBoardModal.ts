@@ -3,9 +3,9 @@ import { App, Modal, Setting } from 'obsidian';
 export class CreateBoardModal extends Modal {
     boardName: string = '';
     createFolder: boolean = false;
-    onSubmit: (boardName: string, createFolder: boolean) => void;
+    onSubmit: (boardName: string, createFolder: boolean) => void | Promise<void>;
 
-    constructor(app: App, onSubmit: (boardName: string, createFolder: boolean) => void) {
+    constructor(app: App, onSubmit: (boardName: string, createFolder: boolean) => void | Promise<void>) {
         super(app);
         this.onSubmit = onSubmit;
     }
@@ -42,7 +42,7 @@ export class CreateBoardModal extends Modal {
                 .setCta()
                 .onClick(() => {
                     this.close();
-                    this.onSubmit(this.boardName, this.createFolder);
+                    void this.onSubmit(this.boardName, this.createFolder);
                 }));
     }
 
