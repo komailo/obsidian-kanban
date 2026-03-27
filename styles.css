@@ -72,8 +72,8 @@
 .kanban-lane {
     background-color: var(--background-secondary);
     border-radius: 6px;
-    min-width: 280px;
-    max-width: 280px;
+    min-width: var(--lane-width, 280px);
+    width: var(--lane-width, 280px);
     padding: 8px;
     display: flex;
     flex-direction: column;
@@ -323,9 +323,18 @@
     border-radius: 4px;
 }
 
-.kanban-date-modal-buttons {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
+.kanban-archive-list {
+    max-height: 400px;
+    overflow-y: auto;
 }
-\n.kanban-datepicker-container .flatpickr-calendar {\n    background: var(--background-primary);\n    border: 1px solid var(--background-modifier-border);\n    box-shadow: 0 4px 12px rgba(0,0,0,0.2);\n}\n.kanban-datepicker-container .flatpickr-day {\n    color: var(--text-normal);\n}\n.kanban-datepicker-container .flatpickr-day.today {\n    border-color: var(--interactive-accent);\n}\n.kanban-datepicker-container .flatpickr-day.selected {\n    background: var(--interactive-accent);\n    color: var(--text-on-accent);\n    border-color: var(--interactive-accent);\n}\n.kanban-datepicker-container .flatpickr-current-month,\n.kanban-datepicker-container .flatpickr-month {\n    color: var(--text-normal);\n    fill: var(--text-normal);\n}\n.kanban-datepicker-container .flatpickr-weekday {\n    color: var(--text-muted);\n}\n.kanban-datepicker-container .flatpickr-months .flatpickr-prev-month,\n.kanban-datepicker-container .flatpickr-months .flatpickr-next-month {\n    fill: var(--text-normal);\n}\n
+
+.kanban-archive-item {
+    margin-bottom: 10px;
+    padding: 10px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+}
+
+.kanban-settings-textarea {
+    width: 100%;
+}

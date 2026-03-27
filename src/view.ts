@@ -1,7 +1,6 @@
-import { TextFileView, WorkspaceLeaf, Menu, Modal, App, Setting, Notice, MarkdownRenderer, normalizePath, TFile } from 'obsidian';
-import { KanbanBoard, moveCard, updateCard, duplicateCard, KanbanLane } from './types';
+import { TextFileView, WorkspaceLeaf, Menu, Modal, App, Setting, Notice, MarkdownRenderer, normalizePath, TFile, Component } from 'obsidian';
+import { KanbanBoard, moveCard, updateCard, duplicateCard, KanbanLane, KanbanCard } from './types';
 import { MarkdownParser } from './parser';
-import * as flatpickr from 'flatpickr';
 import KanbanPlugin from './main';
 
 export const KANBAN_VIEW_TYPE = 'kanban-view';
@@ -124,7 +123,7 @@ export class KanbanView extends TextFileView {
 
         const searchInput = controlsWrapper.createEl('input', {
             cls: 'kanban-search-input',
-            placeholder: 'Search cards...',
+            placeholder: 'Search cards',
             value: this.filterText
         });
         
@@ -166,8 +165,9 @@ export class KanbanView extends TextFileView {
 
             const laneEl = lanesContainer.createDiv({ cls: 'kanban-lane' });
             if (this.plugin.settings.laneWidth) {
-                laneEl.style.width = `${this.plugin.settings.laneWidth}px`;
-                laneEl.style.minWidth = `${this.plugin.settings.laneWidth}px`;
+                laneEl.setCssProps({
+                    '--lane-width': `${this.plugin.settings.laneWidth}px`
+                });
             }
             laneEl.dataset.laneId = lane.id;
 
@@ -355,12 +355,6 @@ export class KanbanView extends TextFileView {
                                             this.board.lanes.push(archiveLane);
                                         }
 
-                                        let newContent = card.content;
-                                        if (this.plugin.settings.appendArchiveDate) {
-                                            const format = this.plugin.settings.archiveDateFormat || 'YYYY-MM-DD';
-                                            newContent += ` ${window.moment().format(format)}`;
-                                        }
-
                                         // Archive linked notes if setting is enabled
                                         const file = this.file;
                                         if (this.plugin.settings.archiveLinkedNotes && file) {
@@ -446,8 +440,8 @@ export class KanbanView extends TextFileView {
                         menu.addItem((item) => {
                             item.setIcon("lucide-calendar-days")
                                 .setTitle(card.date ? "Change date" : "Add date")
-                                .onClick((evt: MouseEvent) => {
-                                    this.showDatePicker(evt, card);
+                                .onClick(() => {
+                                    this.showDatePicker(card);
                                 });
                         });
 
@@ -520,7 +514,7 @@ export class KanbanView extends TextFileView {
 
                             const customTrigger = this.plugin.settings.dateTrigger;
                             if (customTrigger && customTrigger !== '@today' && customTrigger !== '@tomorrow' && valueToSave.includes(customTrigger)) {
-                                const escapeRegex = (s: string) => s.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+                                const escapeRegex = (s: string) => s.replace(/[\\^$*+?.()|[\]{}-]/g, '\\$&');
                                 const triggerRegex = new RegExp(escapeRegex(customTrigger), 'g');
                                 valueToSave = valueToSave.replace(triggerRegex, window.moment().format(df));
                             }
@@ -534,7 +528,6 @@ export class KanbanView extends TextFileView {
                     textarea.addEventListener('blur', save);
                     textarea.addEventListener('keydown', (e) => {
                         const trigger = this.plugin.settings.newLineTrigger || 'shift-enter';
-                        const isNewLine = trigger === 'shift-enter' ? (e.key === 'Enter' && e.shiftKey) : (e.key === 'Enter' && !e.shiftKey);
                         const isSave = trigger === 'shift-enter' ? (e.key === 'Enter' && !e.shiftKey) : (e.key === 'Enter' && e.shiftKey);
 
                         if (isSave) {
@@ -554,7 +547,7 @@ export class KanbanView extends TextFileView {
 
                     // Always render with native checkbox handling
                     const contentContainer = cardEl.createDiv({ cls: 'kanban-card-content kanban-card-native-checkboxes' });
-                    MarkdownRenderer.renderMarkdown(displayContent, contentContainer, this.file?.path || "", this)
+                    void MarkdownRenderer.render(this.app, displayContent, contentContainer, this.file?.path || "", this)
                         .then(() => {
                             // Add event listeners to rendered checkboxes to update the card content
                             const checkboxes = contentContainer.querySelectorAll('input[type="checkbox"].task-list-item-checkbox');
@@ -584,7 +577,7 @@ export class KanbanView extends TextFileView {
                         const dateContainer = cardEl.createDiv({ cls: 'kanban-card-date' });
                         dateContainer.addEventListener('click', (e) => {
                             e.stopPropagation();
-                            this.showDatePicker(e, card);
+                            this.showDatePicker(card);
                         });
                         
                         let dateText = card.date;
@@ -667,8 +660,8 @@ export class KanbanView extends TextFileView {
         }, { offset: Number.NEGATIVE_INFINITY, element: null }).element;
     }
 
-    private async createNoteFromCard(card: any, lane: KanbanLane) {
-        let noteTitle = card.content.split('\n')[0].replace(/[\\/:"*?<>|#]/g, '').trim() || `Card ${card.id}`;
+    private async createNoteFromCard(card: KanbanCard, lane: KanbanLane) {
+        let noteTitle = (card.content.split('\n')[0] || "").replace(/[\\/:"*?<>|#]/g, '').trim() || `Card ${card.id}`;
         if (noteTitle.length > 50) noteTitle = noteTitle.substring(0, 50).trim();
 
         const folderPath = this.file?.parent?.path || "";
@@ -678,7 +671,7 @@ export class KanbanView extends TextFileView {
         if (!folder && folderPath) {
             try {
                 folder = await this.app.vault.createFolder(folderPath);
-            } catch (e) {
+            } catch {
                 new Notice("Failed to create folder: " + folderPath);
                 return;
             }
@@ -688,9 +681,9 @@ export class KanbanView extends TextFileView {
 
         // check if exists
         let file = this.app.vault.getAbstractFileByPath(fullPath);
-        if (file) {
+        if (file && file instanceof TFile) {
             new Notice("File already exists: " + fullPath);
-            this.app.workspace.getLeaf(false).openFile(file as any);
+            await this.app.workspace.getLeaf(false).openFile(file);
             return;
         }
 
@@ -698,10 +691,10 @@ export class KanbanView extends TextFileView {
         if (templatePath) {
             try {
                 const templateFile = this.app.vault.getAbstractFileByPath(templatePath);
-                if (templateFile) {
-                    content = await this.app.vault.read(templateFile as any);
+                if (templateFile && templateFile instanceof TFile) {
+                    content = await this.app.vault.read(templateFile);
                 }
-            } catch (e) {
+            } catch {
                 new Notice("Failed to read template file: " + templatePath);
             }
         } else {
@@ -714,7 +707,7 @@ export class KanbanView extends TextFileView {
         }
 
         try {
-            file = await this.app.vault.create(fullPath, content);
+            const newFile = await this.app.vault.create(fullPath, content);
             new Notice(`Created note: ${noteTitle}`);
 
             if (this.board) {
@@ -723,13 +716,14 @@ export class KanbanView extends TextFileView {
             }
 
             const leaf = this.app.workspace.getLeaf('tab');
-            await leaf.openFile(file as any, { state: { mode: 'source' } });
-        } catch (e: any) {
-            new Notice("Failed to create note: " + e.message);
+            await leaf.openFile(newFile, { state: { mode: 'source' } });
+        } catch (e) {
+            const message = e instanceof Error ? e.message : String(e);
+            new Notice("Failed to create note: " + message);
         }
     }
 
-    private showDatePicker(e: MouseEvent, card: any) {
+    private showDatePicker(card: KanbanCard) {
         const modal = new Modal(this.app);
         modal.titleEl.setText("Select date");
         
@@ -823,7 +817,7 @@ class BoardSettingsModal extends Modal {
                         this.board.lanes = updatedLanes;
                     });
                 text.inputEl.rows = 8;
-                text.inputEl.style.width = '100%';
+                text.inputEl.addClass('kanban-settings-textarea');
             });
 
         new Setting(contentEl)
@@ -864,10 +858,10 @@ class ArchiveModal extends Modal {
             return;
         }
 
-        const list = contentEl.createEl('ul', { cls: 'kanban-archive-list', attr: { style: 'max-height: 400px; overflow-y: auto;' } });
+        const list = contentEl.createEl('ul', { cls: 'kanban-archive-list' });
         archiveLane.cards.forEach(card => {
-            const li = list.createEl('li', { attr: { style: 'margin-bottom: 10px; padding: 10px; border: 1px solid var(--background-modifier-border); border-radius: 4px;' } });
-            MarkdownRenderer.renderMarkdown(card.content, li, "", this as any);
+            const li = list.createEl('li', { cls: 'kanban-archive-item' });
+            void MarkdownRenderer.render(this.app, card.content, li, "", this as unknown as Component);
         });
     }
 

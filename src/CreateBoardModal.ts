@@ -14,7 +14,7 @@ export class CreateBoardModal extends Modal {
         const { contentEl } = this;
         
         new Setting(contentEl)
-            .setName('Create new Kanban board')
+            .setName('Create new board')
             .setHeading();
 
         new Setting(contentEl)

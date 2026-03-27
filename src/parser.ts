@@ -87,7 +87,6 @@ export class MarkdownParser {
 
         // Extract date
         const dateTrigger = board.settings?.dateTrigger || '@today'; // default if not in frontmatter
-        const dateFormat = board.settings?.dateFormat || 'YYYY-MM-DD';
         
         // Escape dateTrigger for regex
         const escapedTrigger = dateTrigger.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -134,7 +133,7 @@ export class MarkdownParser {
 
     static stringify(board: KanbanBoard): string {
         let markdown = '---\n';
-        const yaml: any = {};
+        const yaml: Record<string, unknown> = {};
         if (board.title) yaml.title = board.title;
         if (board.lanes.length > 0) {
             yaml.lanes = board.lanes.map(l => l.title);

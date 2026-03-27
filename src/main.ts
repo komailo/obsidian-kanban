@@ -1,6 +1,5 @@
 import { Plugin, WorkspaceLeaf, TFile, normalizePath } from 'obsidian';
 import { KanbanView, KANBAN_VIEW_TYPE } from './view';
-import { MarkdownParser } from './parser';
 import { DEFAULT_SETTINGS, KanbanSettings, KanbanSettingTab } from './settings';
 import { CreateBoardModal } from './CreateBoardModal';
 
@@ -17,23 +16,23 @@ export default class KanbanPlugin extends Plugin {
 
         this.registerExtensions(['kanban'], KANBAN_VIEW_TYPE);
 
-        this.addRibbonIcon('dice', 'New Kanban board', async () => {
-            await this.createNewBoard();
+        this.addRibbonIcon('dice', 'New board', () => {
+            this.createNewBoard();
         });
 
         this.addCommand({
-            id: 'open-kanban-view',
-            name: 'Open Kanban view',
+            id: 'open-view',
+            name: 'Open board',
             callback: () => {
                 this.activateView();
             }
         });
 
         this.addCommand({
-            id: 'create-new-kanban-board',
-            name: 'Create new Kanban board',
-            callback: async () => {
-                await this.createNewBoard();
+            id: 'create-board',
+            name: 'Create new board',
+            callback: () => {
+                this.createNewBoard();
             }
         });
 
@@ -43,7 +42,7 @@ export default class KanbanPlugin extends Plugin {
     onunload() {
     }
 
-    async createNewBoard() {
+    createNewBoard() {
         const { vault, workspace } = this.app;
 
         new CreateBoardModal(this.app, async (boardName: string, createFolder: boolean) => {
@@ -80,7 +79,7 @@ export default class KanbanPlugin extends Plugin {
 
             // Open the file
             const leaf = workspace.getLeaf(true);
-            await leaf.openFile(file as TFile);
+            await leaf.openFile(file);
         }).open();
     }
 
