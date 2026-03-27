@@ -1,9 +1,9 @@
 {
   "id": "kanban",
-  "name": "Kanban",
-  "version": "0.2.1",
+  "name": "Kanban Board",
+  "version": "0.2.2",
   "minAppVersion": "1.12.0",
-  "description": "A modern, feature-rich Kanban board for Obsidian.",
+  "description": "A modern, feature-rich Kanban board.",
   "author": "Komail Kanjee",
   "authorUrl": "https://github.com/komailo",
   "isDesktopOnly": false,
