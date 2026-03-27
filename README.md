@@ -17,3 +17,7 @@ Create and manage your projects with a simple, intuitive drag-and-drop interface
 
 1. Search for "Obsidian Kanban" in the Community Plugins tab in Obsidian settings.
 2. Install and enable the plugin.
+
+## Screen Shots
+
+![screenshot-board](docs/assets/screenshot-board.png)
