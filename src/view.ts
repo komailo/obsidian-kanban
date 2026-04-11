@@ -195,6 +195,8 @@ export class KanbanView extends TextFileView {
 
         laneEl.addEventListener('dragleave', (e) => {
             e.stopPropagation();
+            const relatedTarget = e.relatedTarget as Node | null;
+            if (relatedTarget && laneEl.contains(relatedTarget)) return;
             laneEl.removeClass('kanban-lane-drag-over');
         });
 
