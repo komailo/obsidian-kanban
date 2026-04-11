@@ -1,6 +1,6 @@
 {
   "name": "obsidian-kanban",
-  "version": "0.3.0",
+  "version": "1.0.0",
   "description": "A modern, feature-rich Kanban board for Obsidian.",
   "main": "main.js",
   "type": "module",
@@ -18,15 +18,15 @@
   ],
   "license": "MIT",
   "devDependencies": {
-    "@eslint/js": "9.39.4",
-    "@types/node": "16.18.126",
+    "@eslint/js": "10.0.1",
+    "@types/node": "24.12.2",
     "esbuild": "0.28.0",
-    "eslint": "9.39.4",
+    "eslint": "10.2.0",
     "eslint-plugin-obsidianmd": "0.1.9",
-    "globals": "14.0.0",
+    "globals": "17.4.0",
     "jiti": "2.6.1",
     "tslib": "2.8.1",
-    "typescript": "5.9.3",
+    "typescript": "6.0.2",
     "typescript-eslint": "8.58.1"
   },
   "dependencies": {
