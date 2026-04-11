@@ -26,5 +26,6 @@ jobs:
               uses: go-task/setup-task@v2
               with:
                   version: latest
+                  repo-token: ${{ secrets.GITHUB_TOKEN }}
             - name: Run check
               run: task check
