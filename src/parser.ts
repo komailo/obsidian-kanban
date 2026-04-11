@@ -36,8 +36,8 @@ export class MarkdownParser {
             }
         }
 
+        let currentParent: KanbanLane | null = null;
         let currentLane: KanbanLane | null = null;
-        const laneStack: KanbanLane[] = [];
 
         for (const node of tree.children) {
             if (node.type === 'heading' && node.depth === 1 && !board.title) {
@@ -55,22 +55,14 @@ export class MarkdownParser {
 
                 if (depth === 2) {
                     board.lanes.push(currentLane);
-                    laneStack[0] = currentLane;
-                    laneStack.length = 1;
+                    currentParent = currentLane;
+                } else if (currentParent) {
+                    if (!currentParent.subLanes) currentParent.subLanes = [];
+                    currentParent.subLanes.push(currentLane);
                 } else {
-                    // Try to find parent in stack
-                    const parentLane = laneStack[depth - 3];
-                    if (parentLane) {
-                        if (!parentLane.subLanes) parentLane.subLanes = [];
-                        parentLane.subLanes.push(currentLane);
-                        laneStack[depth - 2] = currentLane;
-                        laneStack.length = depth - 1;
-                    } else {
-                        // Orphaned heading, treat as top-level H2
-                        board.lanes.push(currentLane);
-                        laneStack[0] = currentLane;
-                        laneStack.length = 1;
-                    }
+                    // Orphaned heading, treat as top-level H2
+                    board.lanes.push(currentLane);
+                    currentParent = currentLane;
                 }
                 continue;
             }
@@ -88,25 +80,28 @@ export class MarkdownParser {
         // Or if we have settings but no content yet
         if (board.settings?.lanes && board.lanes.length === 0) {
             const newLanes: KanbanLane[] = [];
-            const laneStack: KanbanLane[] = [];
+            let currentParent: KanbanLane | null = null;
+
             board.settings.lanes.forEach(titleLine => {
                 const trimmed = titleLine.trim();
                 const isSub = trimmed.startsWith('- ');
                 const title = isSub ? trimmed.substring(2).trim() : trimmed;
+
                 const lane: KanbanLane = {
                     id: Math.random().toString(36).substring(2, 11),
                     title,
                     cards: []
                 };
+
                 if (!isSub) {
                     newLanes.push(lane);
-                    laneStack[0] = lane;
-                } else if (laneStack[0]) {
-                    if (!laneStack[0].subLanes) laneStack[0].subLanes = [];
-                    laneStack[0].subLanes.push(lane);
+                    currentParent = lane;
+                } else if (currentParent) {
+                    if (!currentParent.subLanes) currentParent.subLanes = [];
+                    currentParent.subLanes.push(lane);
                 } else {
                     newLanes.push(lane);
-                    laneStack[0] = lane;
+                    currentParent = lane;
                 }
             });
             board.lanes = newLanes;
@@ -186,7 +181,7 @@ export class MarkdownParser {
             for (const lane of lanes) {
                 res.push(lane.title);
                 if (lane.subLanes) {
-                    serializeLanesSettings(lane.subLanes).forEach(sub => res.push(`- ${sub}`));
+                    lane.subLanes.forEach(sub => res.push(`- ${sub.title}`));
                 }
             }
             return res;

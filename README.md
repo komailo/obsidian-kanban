@@ -36,6 +36,7 @@ You can create sub-swimlanes in two ways:
     ```
 2.  **In Markdown**: Use different heading levels. H2 headings create top-level lanes, and H3+ headings create sub-lanes nested under the preceding H2.
 
+
 ## Screen Shots
 
 ### Main Board

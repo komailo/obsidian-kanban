@@ -835,7 +835,7 @@ class BoardSettingsModal extends Modal {
                         if (l.title === '*** Archive ***') continue;
                         res.push(l.title);
                         if (l.subLanes) {
-                            serializeLanes(l.subLanes).forEach(s => res.push(`- ${s}`));
+                            l.subLanes.forEach(sub => res.push(`- ${sub.title}`));
                         }
                     }
                     return res;
@@ -846,13 +846,13 @@ class BoardSettingsModal extends Modal {
                     .onChange((value) => {
                         const lines = value.split('\n').filter(t => t.trim() !== '');
                         const newLanes: KanbanLane[] = [];
-                        const laneStack: KanbanLane[] = [];
+                        let currentParent: KanbanLane | null = null;
 
                         lines.forEach(line => {
                             const trimmed = line.trim();
                             const isSub = trimmed.startsWith('- ');
                             const title = isSub ? trimmed.substring(2).trim() : trimmed;
-                            
+
                             const existing = this.findLaneByTitleRecursively(this.board.lanes, title);
                             const lane: KanbanLane = existing ? { ...existing, subLanes: [] } : {
                                 id: Math.random().toString(36).substring(2, 11),
@@ -863,17 +863,13 @@ class BoardSettingsModal extends Modal {
 
                             if (!isSub) {
                                 newLanes.push(lane);
-                                laneStack[0] = lane;
-                                laneStack.length = 1;
+                                currentParent = lane;
+                            } else if (currentParent) {
+                                if (!currentParent.subLanes) currentParent.subLanes = [];
+                                currentParent.subLanes.push(lane);
                             } else {
-                                const parent = laneStack[0];
-                                if (parent) {
-                                    if (!parent.subLanes) parent.subLanes = [];
-                                    parent.subLanes.push(lane);
-                                } else {
-                                    newLanes.push(lane);
-                                    laneStack[0] = lane;
-                                }
+                                newLanes.push(lane);
+                                currentParent = lane;
                             }
                         });
 
