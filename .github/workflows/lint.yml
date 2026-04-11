@@ -2,7 +2,7 @@ name: Node.js build
 
 on:
     push:
-        branches: ["**"]
+        branches: ["main"]
     pull_request:
         branches: ["**"]
 
@@ -11,8 +11,9 @@ jobs:
         runs-on: ubuntu-latest
 
         strategy:
+            fail-fast: false
             matrix:
-                node-version: [20.x, 22.x]
+                node-version: [20.x, 22.x, 24.x]
                 # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
 
         steps:
@@ -24,7 +25,5 @@ jobs:
                   cache: "npm"
             - name: Install Task
               uses: go-task/setup-task@v2
-              with:
-                  version: latest
             - name: Run check
               run: task check
