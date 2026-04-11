@@ -579,7 +579,8 @@ export class KanbanView extends TextFileView {
                     .then(() => {
                         // Add event listeners to rendered checkboxes to update the card content
                         const checkboxes = contentContainer.querySelectorAll('input[type="checkbox"].task-list-item-checkbox');
-                        checkboxes.forEach((cb: HTMLInputElement, index) => {
+                        checkboxes.forEach((el, index) => {
+                            const cb = el as HTMLInputElement;
                             cb.addEventListener('change', (e) => {
                                 e.stopPropagation();
 

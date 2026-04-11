@@ -4,7 +4,7 @@ import { DEFAULT_SETTINGS, KanbanSettings, KanbanSettingTab } from './settings';
 import { CreateBoardModal } from './CreateBoardModal';
 
 export default class KanbanPlugin extends Plugin {
-    settings: KanbanSettings;
+    settings!: KanbanSettings;
 
     async onload() {
         await this.loadSettings();

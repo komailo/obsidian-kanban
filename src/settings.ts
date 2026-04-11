@@ -109,8 +109,8 @@ export class KanbanSettingTab extends PluginSettingTab {
 				.addOption('append', 'Append')
 				.addOption('prepend', 'Prepend')
 				.setValue(this.plugin.settings.newCardInsertionMethod)
-				.onChange(async (value: 'append' | 'prepend') => {
-					this.plugin.settings.newCardInsertionMethod = value;
+				.onChange(async (value) => {
+					this.plugin.settings.newCardInsertionMethod = value as 'append' | 'prepend';
 					await this.plugin.saveSettings();
 				}));
 
@@ -121,8 +121,8 @@ export class KanbanSettingTab extends PluginSettingTab {
 				.addOption('shift-enter', 'Shift + Enter')
 				.addOption('enter', 'Enter')
 				.setValue(this.plugin.settings.newLineTrigger)
-				.onChange(async (value: 'enter' | 'shift-enter') => {
-					this.plugin.settings.newLineTrigger = value;
+				.onChange(async (value) => {
+					this.plugin.settings.newLineTrigger = value as 'enter' | 'shift-enter';
 					await this.plugin.saveSettings();
 				}));
 

@@ -165,7 +165,7 @@ export class MarkdownParser {
 
         return {
             id: Math.random().toString(36).substring(2, 11),
-            content: content.trimEnd(),
+            content: content.trim(),
             date: date
         };
     }
