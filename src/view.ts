@@ -845,6 +845,11 @@ class BoardSettingsModal extends Modal {
                     .setValue(serializeLanes(this.board.lanes).join('\n'))
                     .onChange((value) => {
                         const lines = value.split('\n').filter(t => t.trim() !== '');
+                        const newTitles = lines.map(line => {
+                            const trimmed = line.trim();
+                            return trimmed.startsWith('- ') ? trimmed.substring(2).trim() : trimmed;
+                        });
+
                         const newLanes: KanbanLane[] = [];
                         let currentParent: KanbanLane | null = null;
 
@@ -870,6 +875,30 @@ class BoardSettingsModal extends Modal {
                             } else {
                                 newLanes.push(lane);
                                 currentParent = lane;
+                            }
+                        });
+
+                        // Prevent data loss: retain any lanes (including sub-lanes) that have cards but were removed from the settings
+                        const getAllLanesFlat = (lanes: KanbanLane[]): KanbanLane[] => {
+                            let res: KanbanLane[] = [];
+                            for (const l of lanes) {
+                                res.push(l);
+                                if (l.subLanes) res = res.concat(getAllLanesFlat(l.subLanes));
+                            }
+                            return res;
+                        };
+
+                        const originalLanesFlat = getAllLanesFlat(this.board.lanes);
+                        const removedWithCards = originalLanesFlat.filter(l => 
+                            l.title !== '*** Archive ***' && 
+                            !newTitles.includes(l.title) && 
+                            l.cards.length > 0
+                        );
+
+                        removedWithCards.forEach(lane => {
+                            // Only add if not already in newLanes (checking by ID or title)
+                            if (!this.findLaneByTitleRecursively(newLanes, lane.title)) {
+                                newLanes.push({ ...lane, subLanes: [] });
                             }
                         });
 
