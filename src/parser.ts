@@ -37,6 +37,7 @@ export class MarkdownParser {
         }
 
         let currentLane: KanbanLane | null = null;
+        const laneStack: KanbanLane[] = [];
 
         for (const node of tree.children) {
             if (node.type === 'heading' && node.depth === 1 && !board.title) {
@@ -45,12 +46,32 @@ export class MarkdownParser {
             }
 
             if (node.type === 'heading' && node.depth >= 2) {
+                const depth = node.depth;
                 currentLane = {
                     id: Math.random().toString(36).substring(2, 11),
                     title: toString(node),
                     cards: []
                 };
-                board.lanes.push(currentLane);
+
+                if (depth === 2) {
+                    board.lanes.push(currentLane);
+                    laneStack[0] = currentLane;
+                    laneStack.length = 1;
+                } else {
+                    // Try to find parent in stack
+                    const parentLane = laneStack[depth - 3];
+                    if (parentLane) {
+                        if (!parentLane.subLanes) parentLane.subLanes = [];
+                        parentLane.subLanes.push(currentLane);
+                        laneStack[depth - 2] = currentLane;
+                        laneStack.length = depth - 1;
+                    } else {
+                        // Orphaned heading, treat as top-level H2
+                        board.lanes.push(currentLane);
+                        laneStack[0] = currentLane;
+                        laneStack.length = 1;
+                    }
+                }
                 continue;
             }
 
@@ -66,11 +87,29 @@ export class MarkdownParser {
         // Apply settings-defined lanes if we found any lanes in the file
         // Or if we have settings but no content yet
         if (board.settings?.lanes && board.lanes.length === 0) {
-            board.lanes = board.settings.lanes.map(title => ({
-                id: Math.random().toString(36).substring(2, 11),
-                title,
-                cards: []
-            }));
+            const newLanes: KanbanLane[] = [];
+            const laneStack: KanbanLane[] = [];
+            board.settings.lanes.forEach(titleLine => {
+                const trimmed = titleLine.trim();
+                const isSub = trimmed.startsWith('- ');
+                const title = isSub ? trimmed.substring(2).trim() : trimmed;
+                const lane: KanbanLane = {
+                    id: Math.random().toString(36).substring(2, 11),
+                    title,
+                    cards: []
+                };
+                if (!isSub) {
+                    newLanes.push(lane);
+                    laneStack[0] = lane;
+                } else if (laneStack[0]) {
+                    if (!laneStack[0].subLanes) laneStack[0].subLanes = [];
+                    laneStack[0].subLanes.push(lane);
+                } else {
+                    newLanes.push(lane);
+                    laneStack[0] = lane;
+                }
+            });
+            board.lanes = newLanes;
         }
 
         return board;
@@ -140,8 +179,21 @@ export class MarkdownParser {
         let markdown = '---\n';
         const yaml: Record<string, unknown> = {};
         if (board.title) yaml.title = board.title;
+        
+        // Settings for lanes in frontmatter
+        const serializeLanesSettings = (lanes: KanbanLane[]): string[] => {
+            const res: string[] = [];
+            for (const lane of lanes) {
+                res.push(lane.title);
+                if (lane.subLanes) {
+                    serializeLanesSettings(lane.subLanes).forEach(sub => res.push(`- ${sub}`));
+                }
+            }
+            return res;
+        };
+
         if (board.lanes.length > 0) {
-            yaml.lanes = board.lanes.map(l => l.title);
+            yaml.lanes = serializeLanesSettings(board.lanes);
         }
         if (board.settings?.dateTrigger) yaml.dateTrigger = board.settings.dateTrigger;
         if (board.settings?.dateFormat) yaml.dateFormat = board.settings.dateFormat;
@@ -155,8 +207,8 @@ export class MarkdownParser {
 
         const dateTrigger = board.settings?.dateTrigger || '@today';
 
-        for (const lane of board.lanes) {
-            markdown += `## ${lane.title}\n\n`;
+        const stringifyLane = (lane: KanbanLane, depth: number): string => {
+            let res = `${'#'.repeat(depth)} ${lane.title}\n\n`;
             for (const card of lane.cards) {
                 let cardContent = card.content;
                 if (card.date) {
@@ -167,15 +219,32 @@ export class MarkdownParser {
 
                 const cardLines = cardContent.split('\n');
                 if (cardLines.length === 1) {
-                    markdown += `- ${cardLines[0]}\n`;
+                    res += `- ${cardLines[0]}\n`;
                 } else {
-                    markdown += `- ${cardLines[0]}\n`;
+                    res += `- ${cardLines[0]}\n`;
                     for (let i = 1; i < cardLines.length; i++) {
-                        markdown += `  ${cardLines[i]}\n`;
+                        res += `  ${cardLines[i]}\n`;
                     }
                 }
             }
-            markdown += '\n';
+            res += '\n';
+
+            if (lane.subLanes) {
+                for (const subLane of lane.subLanes) {
+                    res += stringifyLane(subLane, depth + 1);
+                }
+            }
+            return res;
+        };
+
+        for (const lane of board.lanes) {
+            if (lane.title === '*** Archive ***') continue;
+            markdown += stringifyLane(lane, 2);
+        }
+
+        const archiveLane = board.lanes.find(l => l.title === '*** Archive ***');
+        if (archiveLane) {
+            markdown += stringifyLane(archiveLane, 2);
         }
 
         return markdown;

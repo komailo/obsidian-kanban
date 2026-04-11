@@ -161,488 +161,520 @@ export class KanbanView extends TextFileView {
         const lanesContainer = boardEl.createDiv({ cls: 'kanban-lanes' });
 
         for (const lane of this.board.lanes) {
-            if (lane.title === '*** Archive ***') continue;
+            this.renderLane(lane, lanesContainer, 2);
+        }
+    }
 
-            const laneEl = lanesContainer.createDiv({ cls: 'kanban-lane' });
-            if (this.plugin.settings.laneWidth) {
-                laneEl.setCssProps({
-                    '--lane-width': `${this.plugin.settings.laneWidth}px`
+    private renderLane(lane: KanbanLane, parentEl: HTMLElement, depth: number) {
+        if (lane.title === '*** Archive ***') return;
+
+        const laneEl = parentEl.createDiv({ cls: `kanban-lane depth-${depth}` });
+        if (this.plugin.settings.laneWidth && depth === 2) {
+            laneEl.setCssProps({
+                '--lane-width': `${this.plugin.settings.laneWidth}px`
+            });
+        }
+        laneEl.dataset.laneId = lane.id;
+
+        // Drag and drop listeners on the lane element itself
+        laneEl.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            laneEl.addClass('kanban-lane-drag-over');
+
+            const cardsContainer = Array.from(laneEl.children).find(child => child.classList.contains('kanban-cards')) as HTMLElement;
+            if (cardsContainer) {
+                const afterElement = this.getDragAfterElement(cardsContainer, e.clientY);
+                if (afterElement == null) {
+                    cardsContainer.appendChild(this.placeholderEl);
+                } else {
+                    cardsContainer.insertBefore(this.placeholderEl, afterElement);
+                }
+            }
+        });
+
+        laneEl.addEventListener('dragleave', (e) => {
+            e.stopPropagation();
+            laneEl.removeClass('kanban-lane-drag-over');
+        });
+
+        laneEl.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            laneEl.removeClass('kanban-lane-drag-over');
+
+            if (this.placeholderEl && this.placeholderEl.parentNode) {
+                this.placeholderEl.parentNode.removeChild(this.placeholderEl);
+            }
+
+            const cardId = e.dataTransfer?.getData('text/plain');
+            if (cardId && this.board) {
+                const cardsContainer = Array.from(laneEl.children).find(child => child.classList.contains('kanban-cards')) as HTMLElement;
+                if (!cardsContainer) return;
+                
+                const afterElement = this.getDragAfterElement(cardsContainer, e.clientY);
+                const index = afterElement == null
+                    ? lane.cards.length
+                    : parseInt(afterElement.dataset.index || "0");
+
+                this.updateBoard(moveCard({ ...this.board }, cardId, lane.id, index));
+            }
+        });
+
+        const laneHeader = laneEl.createDiv({ cls: 'kanban-lane-header' });
+
+        if (this.editingLaneId === lane.id) {
+            const laneInput = laneHeader.createEl('input', {
+                cls: 'kanban-lane-title-input',
+                value: lane.title
+            });
+            laneInput.focus();
+
+            const saveLane = () => {
+                lane.title = laneInput.value;
+                this.editingLaneId = null;
+                this.updateBoard({ ...this.board! });
+            };
+
+            laneInput.addEventListener('blur', saveLane);
+            laneInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') saveLane();
+                if (e.key === 'Escape') {
+                    this.editingLaneId = null;
+                    this.render();
+                }
+            });
+        } else {
+            const titleEl = laneHeader.createDiv({ text: lane.title, cls: 'kanban-lane-title' });
+            titleEl.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.editingLaneId = lane.id;
+                this.render();
+            });
+
+            const menuBtn = laneHeader.createDiv({ cls: 'kanban-lane-menu-btn', text: '⋮' });
+            menuBtn.addEventListener('click', (e) => {
+                const menu = new Menu();
+                menu.addItem((item) =>
+                    item.setTitle("Delete lane")
+                        .setIcon("trash")
+                        .setDisabled(lane.cards.length > 0 || (lane.subLanes?.length || 0) > 0)
+                        .onClick(() => {
+                            if (lane.cards.length > 0 || (lane.subLanes?.length || 0) > 0) {
+                                new Notice("Cannot delete a lane that contains cards or sub-lanes.");
+                                return;
+                            }
+                            if (this.board) {
+                                const removeLaneRecursively = (lanes: KanbanLane[]): KanbanLane[] => {
+                                    return lanes.filter(l => {
+                                        if (l.id === lane.id) return false;
+                                        if (l.subLanes) l.subLanes = removeLaneRecursively(l.subLanes);
+                                        return true;
+                                    });
+                                };
+                                this.board.lanes = removeLaneRecursively(this.board.lanes);
+                                this.updateBoard({ ...this.board });
+                            }
+                        })
+                );
+                if (lane.cards.length > 0 || (lane.subLanes?.length || 0) > 0) {
+                    menu.addItem((item) => item.setTitle("Only empty lanes can be deleted").setDisabled(true));
+                }
+                menu.showAtMouseEvent(e);
+            });
+        }
+
+        const wipMatch = lane.title.match(/\((\d+)\)$/);
+        const wipLimit = wipMatch && wipMatch[1] ? parseInt(wipMatch[1], 10) : null;
+        const isOverLimit = wipLimit !== null && lane.cards.length > wipLimit;
+
+        const countEl = laneHeader.createDiv({ cls: 'kanban-lane-count' });
+        countEl.createSpan({ text: lane.cards.length.toString(), cls: isOverLimit ? 'kanban-wip-over' : '' });
+        if (wipLimit !== null) {
+            countEl.createSpan({ text: ` / ${wipLimit}` });
+        }
+
+        const cardsContainer = laneEl.createDiv({ cls: 'kanban-cards' });
+
+        const isDoneLane = lane.title.toLowerCase() === 'done';
+
+        lane.cards.forEach((card, index) => {
+            // Apply search filter
+            if (this.filterText && !card.content.toLowerCase().includes(this.filterText)) {
+                return;
+            }
+
+            const isEditing = this.editingCardId === card.id;
+            const cardEl = cardsContainer.createDiv({ cls: `kanban-card ${isEditing ? 'kanban-card-editing' : ''} ${isDoneLane ? 'is-completed' : ''}` });
+            cardEl.draggable = !isEditing;
+            cardEl.dataset.cardId = card.id;
+            cardEl.dataset.laneId = lane.id;
+            cardEl.dataset.index = index.toString();
+
+            if (!isEditing) {
+                cardEl.addEventListener('dragstart', (e) => {
+                    e.stopPropagation();
+                    if (e.dataTransfer) {
+                        e.dataTransfer.setData('text/plain', card.id);
+                        e.dataTransfer.effectAllowed = 'move';
+                    }
+                    cardEl.addClass('kanban-card-dragging');
+                });
+
+                cardEl.addEventListener('dragend', (e) => {
+                    e.stopPropagation();
+                    cardEl.removeClass('kanban-card-dragging');
+                    if (this.placeholderEl && this.placeholderEl.parentNode) {
+                        this.placeholderEl.parentNode.removeChild(this.placeholderEl);
+                    }
+                });
+
+                cardEl.addEventListener('contextmenu', (e: MouseEvent) => {
+                    e.preventDefault();
+                    const menu = new Menu();
+
+                    // Group 1: Edit & New Note
+                    menu.addItem((item) => {
+                        item.setIcon("lucide-edit")
+                            .setTitle("Edit card")
+                            .onClick(() => {
+                                this.editingCardId = card.id;
+                                this.render();
+                            });
+                    });
+
+                    menu.addItem((item) => {
+                        item.setIcon("lucide-file-plus-2")
+                            .setTitle("New note from card")
+                            .onClick(async () => {
+                                await this.createNoteFromCard(card, lane);
+                            });
+                    });
+
+                    menu.addSeparator();
+
+                    // Group 2: Duplicate, Archive, Delete
+                    menu.addItem((item) => {
+                        item.setIcon("lucide-copy")
+                            .setTitle("Duplicate card")
+                            .onClick(() => {
+                                if (this.board) {
+                                    this.updateBoard(duplicateCard({ ...this.board }, card.id));
+                                }
+                            });
+                    });
+
+                    menu.addItem((item) => {
+                        item.setIcon("lucide-archive")
+                            .setTitle("Archive card")
+                            .onClick(async () => {
+                                if (this.board) {
+                                    let archiveLane = this.board.lanes.find(l => l.title === '*** Archive ***');
+                                    if (!archiveLane) {
+                                        archiveLane = { id: Math.random().toString(36).substring(2, 11), title: '*** Archive ***', cards: [] };
+                                        this.board.lanes.push(archiveLane);
+                                    }
+
+                                    // Archive linked notes if setting is enabled
+                                    const file = this.file;
+                                    if (this.plugin.settings.archiveLinkedNotes && file) {
+                                        const filePath = file.path;
+                                        const parentPath = file.parent ? file.parent.path : "";
+                                        const linkRegex = /\[\[([^\]|]+)(?:\|.*)?\]\]/g;
+                                        let match;
+                                        
+                                        // Format for prepending: YYYY-MM-DD - 
+                                        const archiveDateFormat = this.plugin.settings.archiveDateFormat || 'YYYY-MM-DD';
+                                        const datePrefix = card.date || window.moment().format(archiveDateFormat);
+                                        
+                                        while ((match = linkRegex.exec(card.content)) !== null) {
+                                            const linkText = match[1];
+                                            if (!linkText) continue;
+                                            const destFile = this.app.metadataCache.getFirstLinkpathDest(linkText, filePath);
+                                            if (destFile && destFile instanceof TFile) {
+                                                const archiveFolderPath = normalizePath(`${parentPath}/archive`);
+                                                
+                                                // Ensure archive folder exists
+                                                if (!this.app.vault.getAbstractFileByPath(archiveFolderPath)) {
+                                                    await this.app.vault.createFolder(archiveFolderPath);
+                                                }
+
+                                                const newFileName = `${datePrefix} - ${destFile.name}`;
+                                                const newPath = normalizePath(`${archiveFolderPath}/${newFileName}`);
+                                                
+                                                // Check if already archived/exists
+                                                if (!this.app.vault.getAbstractFileByPath(newPath)) {
+                                                    const oldLink = match[0];
+                                                    await this.app.fileManager.renameFile(destFile, newPath);
+                                                    
+                                                    // Update the card content with the new link
+                                                    const newLinkName = newFileName.replace(/\.md$/, '');
+                                                    const newLink = `[[${newLinkName}]]`;
+                                                    card.content = card.content.replace(oldLink, newLink);
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    let updatedBoard = moveCard({ ...this.board }, card.id, archiveLane.id, archiveLane.cards.length);
+                                    let finalContent = card.content;
+                                    if (this.plugin.settings.appendArchiveDate) {
+                                        const format = this.plugin.settings.archiveDateFormat || 'YYYY-MM-DD';
+                                        finalContent += ` ${window.moment().format(format)}`;
+                                    }
+                                    updatedBoard = updateCard(updatedBoard, card.id, finalContent);
+                                    this.updateBoard(updatedBoard);
+                                }
+                            });
+                    });
+
+                    menu.addItem((item) => {
+                        item.setIcon("lucide-trash-2")
+                            .setTitle("Delete card")
+                            .onClick(() => {
+                                if (this.board) {
+                                    const removeCardRecursively = (lanes: KanbanLane[]) => {
+                                        for (const l of lanes) {
+                                            l.cards = l.cards.filter(c => c.id !== card.id);
+                                            if (l.subLanes) removeCardRecursively(l.subLanes);
+                                        }
+                                    };
+                                    removeCardRecursively(this.board.lanes);
+                                    this.updateBoard({ ...this.board });
+                                }
+                            });
+                    });
+
+                    menu.addSeparator();
+
+                    // Group 3: Add Date
+                    const isToday = card.date === window.moment().format('YYYY-MM-DD');
+                    if (!isToday) {
+                        menu.addItem((item) => {
+                            item.setIcon("lucide-calendar-check")
+                                .setTitle(card.date ? "Switch to today" : "Add today")
+                                .onClick(() => {
+                                    if (this.board) {
+                                        card.date = window.moment().format('YYYY-MM-DD');
+                                        this.updateBoard({ ...this.board });
+                                        new Notice("Date set to today: " + card.date);
+                                    }
+                                });
+                        });
+                    }
+
+                    menu.addItem((item) => {
+                        item.setIcon("lucide-calendar-days")
+                            .setTitle(card.date ? "Change date" : "Add date")
+                            .onClick(() => {
+                                this.showDatePicker(card);
+                            });
+                    });
+
+                    if (card.date) {
+                        menu.addItem((item) => {
+                            item.setIcon("lucide-calendar-x")
+                                .setTitle("Remove date")
+                                .onClick(() => {
+                                    if (this.board) {
+                                        card.date = undefined;
+                                        this.updateBoard({ ...this.board });
+                                        new Notice("Date removed");
+                                    }
+                                });
+                        });
+                    }
+
+                    menu.showAtMouseEvent(e);
+                });
+
+                cardEl.addEventListener('click', (e: MouseEvent) => {
+                    const target = e.target as HTMLElement;
+                    
+                    // Handle links
+                    const anchor = target.closest('a');
+                    if (anchor) {
+                        const href = anchor.getAttr('data-href') || anchor.getAttr('href');
+                        if (href) {
+                            if (anchor.hasClass('internal-link')) {
+                                void this.app.workspace.openLinkText(href, this.file?.path || "", e.ctrlKey || e.metaKey || e.button === 1);
+                            } else if (anchor.hasClass('external-link')) {
+                                window.open(href);
+                            }
+                        }
+                        return;
+                    }
+
+                    // If we're clicking a checkbox, don't enter edit mode
+                    if (target.closest('.task-list-item-checkbox') || target.closest('input[type="checkbox"]')) {
+                        return;
+                    }
+
+                    this.editingCardId = card.id;
+                    this.render();
                 });
             }
-            laneEl.dataset.laneId = lane.id;
 
-            // Drag and drop listeners on the lane element itself
-            laneEl.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                laneEl.addClass('kanban-lane-drag-over');
-
-                const cardsContainer = laneEl.querySelector('.kanban-cards');
-                if (cardsContainer) {
-                    const afterElement = this.getDragAfterElement(cardsContainer as HTMLElement, e.clientY);
-                    if (afterElement == null) {
-                        cardsContainer.appendChild(this.placeholderEl);
-                    } else {
-                        cardsContainer.insertBefore(this.placeholderEl, afterElement);
-                    }
-                }
-            });
-
-            laneEl.addEventListener('dragleave', () => {
-                laneEl.removeClass('kanban-lane-drag-over');
-            });
-
-            laneEl.addEventListener('drop', (e) => {
-                e.preventDefault();
-                laneEl.removeClass('kanban-lane-drag-over');
-
-                if (this.placeholderEl && this.placeholderEl.parentNode) {
-                    this.placeholderEl.parentNode.removeChild(this.placeholderEl);
-                }
-
-                const cardId = e.dataTransfer?.getData('text/plain');
-                if (cardId && this.board) {
-                    const cardsContainer = laneEl.querySelector('.kanban-cards') as HTMLElement;
-                    const afterElement = this.getDragAfterElement(cardsContainer, e.clientY);
-                    const index = afterElement == null
-                        ? lane.cards.length
-                        : parseInt(afterElement.dataset.index || "0");
-
-                    this.updateBoard(moveCard({ ...this.board }, cardId, lane.id, index));
-                }
-            });
-
-            const laneHeader = laneEl.createDiv({ cls: 'kanban-lane-header' });
-
-            if (this.editingLaneId === lane.id) {
-                const laneInput = laneHeader.createEl('input', {
-                    cls: 'kanban-lane-title-input',
-                    value: lane.title
+            if (isEditing) {
+                const textarea = cardEl.createEl('textarea', {
+                    cls: 'kanban-card-textarea',
+                    text: card.content
                 });
-                laneInput.focus();
 
-                const saveLane = () => {
-                    lane.title = laneInput.value;
-                    this.editingLaneId = null;
-                    this.updateBoard({ ...this.board! });
+                textarea.focus();
+
+                const save = () => {
+                    if (this.board) {
+                        let valueToSave = textarea.value;
+
+                        // Date Replacements
+                        const df = this.plugin.settings.dateFormat || 'YYYY-MM-DD';
+
+                        if (valueToSave.includes('@today')) {
+                            valueToSave = valueToSave.replace(/@today/g, window.moment().format(df));
+                        }
+
+                        if (valueToSave.includes('@tomorrow')) {
+                            valueToSave = valueToSave.replace(/@tomorrow/g, window.moment().add(1, 'day').format(df));
+                        }
+
+                        const customTrigger = this.plugin.settings.dateTrigger;
+                        if (customTrigger && customTrigger !== '@today' && customTrigger !== '@tomorrow' && valueToSave.includes(customTrigger)) {
+                            const escapeRegex = (s: string) => s.replace(/[\\^$*+?.()|[\]{}-]/g, '\\$&');
+                            const triggerRegex = new RegExp(escapeRegex(customTrigger), 'g');
+                            valueToSave = valueToSave.replace(triggerRegex, window.moment().format(df));
+                        }
+
+                        const newBoard = updateCard({ ...this.board }, card.id, valueToSave);
+                        this.editingCardId = null;
+                        this.updateBoard(newBoard);
+                    }
                 };
 
-                laneInput.addEventListener('blur', saveLane);
-                laneInput.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') saveLane();
-                    if (e.key === 'Escape') {
-                        this.editingLaneId = null;
+                textarea.addEventListener('blur', save);
+                textarea.addEventListener('keydown', (e) => {
+                    const trigger = this.plugin.settings.newLineTrigger || 'shift-enter';
+                    const isSave = trigger === 'shift-enter' ? (e.key === 'Enter' && !e.shiftKey) : (e.key === 'Enter' && e.shiftKey);
+
+                    if (isSave) {
+                        e.preventDefault();
+                        textarea.blur();
+                    } else if (e.key === 'Escape') {
+                        this.editingCardId = null;
                         this.render();
                     }
                 });
             } else {
-                const titleEl = laneHeader.createDiv({ text: lane.title, cls: 'kanban-lane-title' });
-                titleEl.addEventListener('click', () => {
-                    this.editingLaneId = lane.id;
-                    this.render();
-                });
+                let displayContent = card.content;
 
-                const menuBtn = laneHeader.createDiv({ cls: 'kanban-lane-menu-btn', text: '⋮' });
-                menuBtn.addEventListener('click', (e) => {
-                    const menu = new Menu();
-                    menu.addItem((item) =>
-                        item.setTitle("Delete lane")
-                            .setIcon("trash")
-                            .setDisabled(lane.cards.length > 0)
-                            .onClick(() => {
-                                if (lane.cards.length > 0) {
-                                    new Notice("Cannot delete a lane that contains cards.");
-                                    return;
-                                }
-                                if (this.board) {
-                                    this.board.lanes = this.board.lanes.filter(l => l.id !== lane.id);
-                                    this.updateBoard({ ...this.board });
-                                }
-                            })
-                    );
-                    if (lane.cards.length > 0) {
-                        menu.addItem((item) => item.setTitle("Only empty lanes can be deleted").setDisabled(true));
-                    }
-                    menu.showAtMouseEvent(e);
-                });
-            }
-
-            const wipMatch = lane.title.match(/\((\d+)\)$/);
-            const wipLimit = wipMatch && wipMatch[1] ? parseInt(wipMatch[1], 10) : null;
-            const isOverLimit = wipLimit !== null && lane.cards.length > wipLimit;
-
-            const countEl = laneHeader.createDiv({ cls: 'kanban-lane-count' });
-            countEl.createSpan({ text: lane.cards.length.toString(), cls: isOverLimit ? 'kanban-wip-over' : '' });
-            if (wipLimit !== null) {
-                countEl.createSpan({ text: ` / ${wipLimit}` });
-            }
-
-            const cardsContainer = laneEl.createDiv({ cls: 'kanban-cards' });
-
-            const isDoneLane = lane.title.toLowerCase() === 'done';
-
-            lane.cards.forEach((card, index) => {
-                // Apply search filter
-                if (this.filterText && !card.content.toLowerCase().includes(this.filterText)) {
-                    return;
+                if (this.plugin.settings.hideTagsInTitle) {
+                    displayContent = displayContent.replace(/#[^\s#]+/g, '').replace(/\s{2,}/g, ' ').trim();
                 }
 
-                const isEditing = this.editingCardId === card.id;
-                const cardEl = cardsContainer.createDiv({ cls: `kanban-card ${isEditing ? 'kanban-card-editing' : ''} ${isDoneLane ? 'is-completed' : ''}` });
-                cardEl.draggable = !isEditing;
-                cardEl.dataset.cardId = card.id;
-                cardEl.dataset.laneId = lane.id;
-                cardEl.dataset.index = index.toString();
-
-                if (!isEditing) {
-                    cardEl.addEventListener('dragstart', (e) => {
-                        if (e.dataTransfer) {
-                            e.dataTransfer.setData('text/plain', card.id);
-                            e.dataTransfer.effectAllowed = 'move';
-                        }
-                        cardEl.addClass('kanban-card-dragging');
-                    });
-
-                    cardEl.addEventListener('dragend', () => {
-                        cardEl.removeClass('kanban-card-dragging');
-                        if (this.placeholderEl && this.placeholderEl.parentNode) {
-                            this.placeholderEl.parentNode.removeChild(this.placeholderEl);
-                        }
-                    });
-
-                    cardEl.addEventListener('contextmenu', (e: MouseEvent) => {
-                        e.preventDefault();
-                        const menu = new Menu();
-
-                        // Group 1: Edit & New Note
-                        menu.addItem((item) => {
-                            item.setIcon("lucide-edit")
-                                .setTitle("Edit card")
-                                .onClick(() => {
-                                    this.editingCardId = card.id;
-                                    this.render();
-                                });
-                        });
-
-                        menu.addItem((item) => {
-                            item.setIcon("lucide-file-plus-2")
-                                .setTitle("New note from card")
-                                .onClick(async () => {
-                                    await this.createNoteFromCard(card, lane);
-                                });
-                        });
-
-                        menu.addSeparator();
-
-                        // Group 2: Duplicate, Archive, Delete
-                        menu.addItem((item) => {
-                            item.setIcon("lucide-copy")
-                                .setTitle("Duplicate card")
-                                .onClick(() => {
-                                    if (this.board) {
-                                        this.updateBoard(duplicateCard({ ...this.board }, card.id));
-                                    }
-                                });
-                        });
-
-                        menu.addItem((item) => {
-                            item.setIcon("lucide-archive")
-                                .setTitle("Archive card")
-                                .onClick(async () => {
-                                    if (this.board) {
-                                        let archiveLane = this.board.lanes.find(l => l.title === '*** Archive ***');
-                                        if (!archiveLane) {
-                                            archiveLane = { id: Math.random().toString(36).substring(2, 11), title: '*** Archive ***', cards: [] };
-                                            this.board.lanes.push(archiveLane);
-                                        }
-
-                                        // Archive linked notes if setting is enabled
-                                        const file = this.file;
-                                        if (this.plugin.settings.archiveLinkedNotes && file) {
-                                            const filePath = file.path;
-                                            const parentPath = file.parent ? file.parent.path : "";
-                                            const linkRegex = /\[\[([^\]|]+)(?:\|.*)?\]\]/g;
-                                            let match;
-                                            
-                                            // Format for prepending: YYYY-MM-DD - 
-                                            const archiveDateFormat = this.plugin.settings.archiveDateFormat || 'YYYY-MM-DD';
-                                            const datePrefix = card.date || window.moment().format(archiveDateFormat);
-                                            
-                                            while ((match = linkRegex.exec(card.content)) !== null) {
-                                                const linkText = match[1];
-                                                if (!linkText) continue;
-                                                const destFile = this.app.metadataCache.getFirstLinkpathDest(linkText, filePath);
-                                                if (destFile && destFile instanceof TFile) {
-                                                    const archiveFolderPath = normalizePath(`${parentPath}/archive`);
-                                                    
-                                                    // Ensure archive folder exists
-                                                    if (!this.app.vault.getAbstractFileByPath(archiveFolderPath)) {
-                                                        await this.app.vault.createFolder(archiveFolderPath);
-                                                    }
-
-                                                    const newFileName = `${datePrefix} - ${destFile.name}`;
-                                                    const newPath = normalizePath(`${archiveFolderPath}/${newFileName}`);
-                                                    
-                                                    // Check if already archived/exists
-                                                    if (!this.app.vault.getAbstractFileByPath(newPath)) {
-                                                        const oldLink = match[0];
-                                                        await this.app.fileManager.renameFile(destFile, newPath);
-                                                        
-                                                        // Update the card content with the new link
-                                                        const newLinkName = newFileName.replace(/\.md$/, '');
-                                                        const newLink = `[[${newLinkName}]]`;
-                                                        card.content = card.content.replace(oldLink, newLink);
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                        let updatedBoard = moveCard({ ...this.board }, card.id, archiveLane.id, archiveLane.cards.length);
-                                        let finalContent = card.content;
-                                        if (this.plugin.settings.appendArchiveDate) {
-                                            const format = this.plugin.settings.archiveDateFormat || 'YYYY-MM-DD';
-                                            finalContent += ` ${window.moment().format(format)}`;
-                                        }
-                                        updatedBoard = updateCard(updatedBoard, card.id, finalContent);
-                                        this.updateBoard(updatedBoard);
-                                    }
-                                });
-                        });
-
-                        menu.addItem((item) => {
-                            item.setIcon("lucide-trash-2")
-                                .setTitle("Delete card")
-                                .onClick(() => {
-                                    if (this.board) {
-                                        lane.cards = lane.cards.filter(c => c.id !== card.id);
-                                        this.updateBoard({ ...this.board });
-                                    }
-                                });
-                        });
-
-                        menu.addSeparator();
-
-                        // Group 3: Add Date
-                        const isToday = card.date === window.moment().format('YYYY-MM-DD');
-                        if (!isToday) {
-                            menu.addItem((item) => {
-                                item.setIcon("lucide-calendar-check")
-                                    .setTitle(card.date ? "Switch to today" : "Add today")
-                                    .onClick(() => {
-                                        if (this.board) {
-                                            card.date = window.moment().format('YYYY-MM-DD');
-                                            this.updateBoard({ ...this.board });
-                                            new Notice("Date set to today: " + card.date);
-                                        }
-                                    });
-                            });
-                        }
-
-                        menu.addItem((item) => {
-                            item.setIcon("lucide-calendar-days")
-                                .setTitle(card.date ? "Change date" : "Add date")
-                                .onClick(() => {
-                                    this.showDatePicker(card);
-                                });
-                        });
-
-                        if (card.date) {
-                            menu.addItem((item) => {
-                                item.setIcon("lucide-calendar-x")
-                                    .setTitle("Remove date")
-                                    .onClick(() => {
-                                        if (this.board) {
-                                            card.date = undefined;
-                                            this.updateBoard({ ...this.board });
-                                            new Notice("Date removed");
-                                        }
-                                    });
-                            });
-                        }
-
-                        menu.showAtMouseEvent(e);
-                    });
-
-                    cardEl.addEventListener('click', (e: MouseEvent) => {
-                        const target = e.target as HTMLElement;
-                        
-                        // Handle links
-                        const anchor = target.closest('a');
-                        if (anchor) {
-                            const href = anchor.getAttr('data-href') || anchor.getAttr('href');
-                            if (href) {
-                                if (anchor.hasClass('internal-link')) {
-                                    void this.app.workspace.openLinkText(href, this.file?.path || "", e.ctrlKey || e.metaKey || e.button === 1);
-                                } else if (anchor.hasClass('external-link')) {
-                                    window.open(href);
-                                }
-                            }
-                            return;
-                        }
-
-                        // If we're clicking a checkbox, don't enter edit mode
-                        if (target.closest('.task-list-item-checkbox') || target.closest('input[type="checkbox"]')) {
-                            return;
-                        }
-
-                        this.editingCardId = card.id;
-                        this.render();
-                    });
-                }
-
-                if (isEditing) {
-                    const textarea = cardEl.createEl('textarea', {
-                        cls: 'kanban-card-textarea',
-                        text: card.content
-                    });
-
-                    textarea.focus();
-
-                    const save = () => {
-                        if (this.board) {
-                            let valueToSave = textarea.value;
-
-                            // Date Replacements
-                            const df = this.plugin.settings.dateFormat || 'YYYY-MM-DD';
-
-                            if (valueToSave.includes('@today')) {
-                                valueToSave = valueToSave.replace(/@today/g, window.moment().format(df));
-                            }
-
-                            if (valueToSave.includes('@tomorrow')) {
-                                valueToSave = valueToSave.replace(/@tomorrow/g, window.moment().add(1, 'day').format(df));
-                            }
-
-                            const customTrigger = this.plugin.settings.dateTrigger;
-                            if (customTrigger && customTrigger !== '@today' && customTrigger !== '@tomorrow' && valueToSave.includes(customTrigger)) {
-                                const escapeRegex = (s: string) => s.replace(/[\\^$*+?.()|[\]{}-]/g, '\\$&');
-                                const triggerRegex = new RegExp(escapeRegex(customTrigger), 'g');
-                                valueToSave = valueToSave.replace(triggerRegex, window.moment().format(df));
-                            }
-
-                            const newBoard = updateCard({ ...this.board }, card.id, valueToSave);
-                            this.editingCardId = null;
-                            this.updateBoard(newBoard);
-                        }
-                    };
-
-                    textarea.addEventListener('blur', save);
-                    textarea.addEventListener('keydown', (e) => {
-                        const trigger = this.plugin.settings.newLineTrigger || 'shift-enter';
-                        const isSave = trigger === 'shift-enter' ? (e.key === 'Enter' && !e.shiftKey) : (e.key === 'Enter' && e.shiftKey);
-
-                        if (isSave) {
-                            e.preventDefault();
-                            textarea.blur();
-                        } else if (e.key === 'Escape') {
-                            this.editingCardId = null;
-                            this.render();
-                        }
-                    });
-                } else {
-                    let displayContent = card.content;
-
-                    if (this.plugin.settings.hideTagsInTitle) {
-                        displayContent = displayContent.replace(/#[^\s#]+/g, '').replace(/\s{2,}/g, ' ').trim();
-                    }
-
-                    // Always render with native checkbox handling
-                    const contentContainer = cardEl.createDiv({ cls: 'kanban-card-content kanban-card-native-checkboxes' });
-                    void MarkdownRenderer.render(this.app, displayContent, contentContainer, this.file?.path || "", this)
-                        .then(() => {
-                            // Add event listeners to rendered checkboxes to update the card content
-                            const checkboxes = contentContainer.querySelectorAll('input[type="checkbox"].task-list-item-checkbox');
-                            checkboxes.forEach((cb: HTMLInputElement, index) => {
-                                cb.addEventListener('change', (e) => {
-                                    e.stopPropagation();
-
-                                    // Simple string replacement: find the nth instance of `- [ ]` or `- [x]`
-                                    let matchCount = -1;
-                                    const newMark = cb.checked ? 'x' : ' ';
-                                    const newContent = card.content.replace(/- \[(x| )\]/ig, (match) => {
-                                        matchCount++;
-                                        if (matchCount === index) {
-                                            return `- [${newMark}]`;
-                                        }
-                                        return match;
-                                    });
-
-                                    if (this.board && newContent !== card.content) {
-                                        this.updateBoard(updateCard({ ...this.board }, card.id, newContent));
-                                    }
-                                });
-                            });
-                        });
-
-                    if (card.date) {
-                        const dateContainer = cardEl.createDiv({ cls: 'kanban-card-date' });
-                        dateContainer.addEventListener('click', (e) => {
-                            e.stopPropagation();
-                            this.showDatePicker(card);
-                        });
-                        
-                        let dateText = card.date;
-                        if (this.plugin.settings.showRelativeDate) {
-                            const m = window.moment(card.date, 'YYYY-MM-DD');
-                            if (m.isValid()) {
-                                dateText = m.fromNow();
-                            }
-                        }
-                        
-                        if (this.plugin.settings.linkDateToDailyNote) {
-                            const link = dateContainer.createEl('a', {
-                                cls: 'internal-link kanban-card-date-link',
-                                text: dateText,
-                                attr: { 'data-href': card.date }
-                            });
-                            link.addEventListener('click', (e) => {
+                // Always render with native checkbox handling
+                const contentContainer = cardEl.createDiv({ cls: 'kanban-card-content kanban-card-native-checkboxes' });
+                void MarkdownRenderer.render(this.app, displayContent, contentContainer, this.file?.path || "", this)
+                    .then(() => {
+                        // Add event listeners to rendered checkboxes to update the card content
+                        const checkboxes = contentContainer.querySelectorAll('input[type="checkbox"].task-list-item-checkbox');
+                        checkboxes.forEach((cb: HTMLInputElement, index) => {
+                            cb.addEventListener('change', (e) => {
                                 e.stopPropagation();
-                                void this.app.workspace.openLinkText(card.date!, this.file?.path || "", e.ctrlKey || e.metaKey || e.button === 1);                            });
-                        } else {
-                            dateContainer.createSpan({ text: dateText });
+
+                                // Simple string replacement: find the nth instance of `- [ ]` or `- [x]`
+                                let matchCount = -1;
+                                const newMark = cb.checked ? 'x' : ' ';
+                                const newContent = card.content.replace(/- \[(x| )\]/ig, (match) => {
+                                    matchCount++;
+                                    if (matchCount === index) {
+                                        return `- [${newMark}]`;
+                                    }
+                                    return match;
+                                });
+
+                                if (this.board && newContent !== card.content) {
+                                    this.updateBoard(updateCard({ ...this.board }, card.id, newContent));
+                                }
+                            });
+                        });
+                    });
+
+                if (card.date) {
+                    const dateContainer = cardEl.createDiv({ cls: 'kanban-card-date' });
+                    dateContainer.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        this.showDatePicker(card);
+                    });
+                    
+                    let dateText = card.date;
+                    if (this.plugin.settings.showRelativeDate) {
+                        const m = window.moment(card.date, 'YYYY-MM-DD');
+                        if (m.isValid()) {
+                            dateText = m.fromNow();
                         }
                     }
+                    
+                    if (this.plugin.settings.linkDateToDailyNote) {
+                        const link = dateContainer.createEl('a', {
+                            cls: 'internal-link kanban-card-date-link',
+                            text: dateText,
+                            attr: { 'data-href': card.date }
+                        });
+                        link.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            void this.app.workspace.openLinkText(card.date!, this.file?.path || "", e.ctrlKey || e.metaKey || e.button === 1);                            });
+                    } else {
+                        dateContainer.createSpan({ text: dateText });
+                    }
+                }
 
-                    if (this.plugin.settings.showLinkedPageMetadata) {
-                        const linkMatch = displayContent.match(/\[\[([^\]|]+)(?:\|.*)?\]\]/);
-                        if (linkMatch) {
-                            const linkText = linkMatch[1] as string;
-                            const destFile = this.app.metadataCache.getFirstLinkpathDest(linkText, this.file?.path || "");
-                            if (destFile) {
-                                const cache = this.app.metadataCache.getFileCache(destFile);
-                                if (cache && cache.frontmatter) {
-                                    const metaEntries = Object.entries(cache.frontmatter)
-                                        .filter(([k, v]) => k !== 'position' && v !== null && v !== undefined);
+                if (this.plugin.settings.showLinkedPageMetadata) {
+                    const linkMatch = displayContent.match(/\[\[([^\]|]+)(?:\|.*)?\]\]/);
+                    if (linkMatch) {
+                        const linkText = linkMatch[1] as string;
+                        const destFile = this.app.metadataCache.getFirstLinkpathDest(linkText, this.file?.path || "");
+                        if (destFile) {
+                            const cache = this.app.metadataCache.getFileCache(destFile);
+                            if (cache && cache.frontmatter) {
+                                const metaEntries = Object.entries(cache.frontmatter)
+                                    .filter(([k, v]) => k !== 'position' && v !== null && v !== undefined);
 
-                                    if (metaEntries.length > 0) {
-                                        const metaContainer = cardEl.createDiv({ cls: 'kanban-card-metadata', attr: { style: 'font-size: 0.8em; opacity: 0.7; margin-top: 5px; background: var(--background-secondary-alt); padding: 4px; border-radius: 4px;' } });
-                                        metaEntries.forEach(([k, v]) => {
-                                            metaContainer.createDiv({ text: `${k}: ${v}` });
-                                        });
-                                    }
+                                if (metaEntries.length > 0) {
+                                    const metaContainer = cardEl.createDiv({ cls: 'kanban-card-metadata', attr: { style: 'font-size: 0.8em; opacity: 0.7; margin-top: 5px; background: var(--background-secondary-alt); padding: 4px; border-radius: 4px;' } });
+                                    metaEntries.forEach(([k, v]) => {
+                                        metaContainer.createDiv({ text: `${k}: ${v}` });
+                                    });
                                 }
                             }
                         }
                     }
                 }
-            });
+            }
+        });
 
-            const addCardBtn = laneEl.createDiv({ cls: 'kanban-add-card', text: '+ Add a card' });
-            addCardBtn.addEventListener('click', () => {
-                if (this.board) {
-                    const newCard = {
-                        id: Math.random().toString(36).substring(2, 11),
-                        content: ""
-                    };
-                    if (this.plugin.settings.newCardInsertionMethod === 'prepend') {
-                        lane.cards.unshift(newCard);
-                    } else {
-                        lane.cards.push(newCard);
-                    }
-                    this.editingCardId = newCard.id;
-                    this.updateBoard({ ...this.board });
-                }
-            });
+        if (lane.subLanes && lane.subLanes.length > 0) {
+            const subLanesContainer = laneEl.createDiv({ cls: 'kanban-sub-lanes' });
+            for (const subLane of lane.subLanes) {
+                this.renderLane(subLane, subLanesContainer, depth + 1);
+            }
         }
+
+        const addCardBtn = laneEl.createDiv({ cls: 'kanban-add-card', text: '+ Add a card' });
+        addCardBtn.addEventListener('click', () => {
+            if (this.board) {
+                const newCard = {
+                    id: Math.random().toString(36).substring(2, 11),
+                    content: ""
+                };
+                if (this.plugin.settings.newCardInsertionMethod === 'prepend') {
+                    lane.cards.unshift(newCard);
+                } else {
+                    lane.cards.push(newCard);
+                }
+                this.editingCardId = newCard.id;
+                this.updateBoard({ ...this.board });
+            }
+        });
     }
 
     private getDragAfterElement(container: HTMLElement, y: number): HTMLElement | null {
@@ -772,6 +804,17 @@ class BoardSettingsModal extends Modal {
         this.onSave = onSave;
     }
 
+    private findLaneByTitleRecursively(lanes: KanbanLane[], title: string): KanbanLane | undefined {
+        for (const l of lanes) {
+            if (l.title === title) return l;
+            if (l.subLanes) {
+                const found = this.findLaneByTitleRecursively(l.subLanes, title);
+                if (found) return found;
+            }
+        }
+        return undefined;
+    }
+
     onOpen() {
         const { contentEl } = this;
         contentEl.empty();
@@ -782,38 +825,61 @@ class BoardSettingsModal extends Modal {
 
         new Setting(contentEl)
             .setName('Swim lanes')
-            .setDesc('Configure the lanes for this board (one per line). Reordering the lines will reorder the lanes.')
+            .setDesc('Configure the lanes for this board (one per line). Use "- " prefix for sub-lanes.')
             .addTextArea(text => {
-                text.setPlaceholder('Backlog\ntodo\nin progress\ndone')
-                    .setValue(this.board.lanes.map(l => l.title).join('\n'))
+                const serializeLanes = (lanes: KanbanLane[]): string[] => {
+                    const res: string[] = [];
+                    for (const l of lanes) {
+                        if (l.title === '*** Archive ***') continue;
+                        res.push(l.title);
+                        if (l.subLanes) {
+                            serializeLanes(l.subLanes).forEach(s => res.push(`- ${s}`));
+                        }
+                    }
+                    return res;
+                };
+
+                text.setPlaceholder('Backlog\ntodo\nin progress\n- active\n- slow\ndone')
+                    .setValue(serializeLanes(this.board.lanes).join('\n'))
                     .onChange((value) => {
-                        const newTitles = value.split('\n').filter(t => t.trim() !== '');
+                        const lines = value.split('\n').filter(t => t.trim() !== '');
+                        const newLanes: KanbanLane[] = [];
+                        const laneStack: KanbanLane[] = [];
 
-                        const currentLanes = [...this.board.lanes];
-                        const updatedLanes: KanbanLane[] = [];
+                        lines.forEach(line => {
+                            const trimmed = line.trim();
+                            const isSub = trimmed.startsWith('- ');
+                            const title = isSub ? trimmed.substring(2).trim() : trimmed;
+                            
+                            const existing = this.findLaneByTitleRecursively(this.board.lanes, title);
+                            const lane: KanbanLane = existing ? { ...existing, subLanes: [] } : {
+                                id: Math.random().toString(36).substring(2, 11),
+                                title,
+                                cards: [],
+                                subLanes: []
+                            };
 
-                        newTitles.forEach(title => {
-                            const existing = currentLanes.find(l => l.title === title);
-                            if (existing) {
-                                updatedLanes.push(existing);
+                            if (!isSub) {
+                                newLanes.push(lane);
+                                laneStack[0] = lane;
+                                laneStack.length = 1;
                             } else {
-                                updatedLanes.push({
-                                    id: Math.random().toString(36).substring(2, 11),
-                                    title,
-                                    cards: []
-                                });
+                                const parent = laneStack[0];
+                                if (parent) {
+                                    if (!parent.subLanes) parent.subLanes = [];
+                                    parent.subLanes.push(lane);
+                                } else {
+                                    newLanes.push(lane);
+                                    laneStack[0] = lane;
+                                }
                             }
                         });
 
-                        const removedWithCards = currentLanes.filter(l =>
-                            !newTitles.includes(l.title) && l.cards.length > 0
-                        );
+                        // Keep archive lane
+                        const archiveLane = this.board.lanes.find(l => l.title === '*** Archive ***');
+                        if (archiveLane) newLanes.push(archiveLane);
 
-                        if (removedWithCards.length > 0) {
-                            removedWithCards.forEach(l => updatedLanes.push(l));
-                        }
-
-                        this.board.lanes = updatedLanes;
+                        this.board.lanes = newLanes;
                     });
                 text.inputEl.rows = 8;
                 text.inputEl.addClass('kanban-settings-textarea');
