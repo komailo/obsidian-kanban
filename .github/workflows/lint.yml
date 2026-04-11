@@ -17,13 +17,13 @@ jobs:
                 # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
 
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
             - name: Use Node.js ${{ matrix.node-version }}
-              uses: actions/setup-node@v4
+              uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
               with:
                   node-version: ${{ matrix.node-version }}
                   cache: "npm"
             - name: Install Task
-              uses: go-task/setup-task@v2
+              uses: go-task/setup-task@3be4020d41929789a01026e0e427a4321ce0ad44 # v2
             - name: Run check
               run: task check
