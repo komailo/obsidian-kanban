@@ -34,6 +34,9 @@ export class KanbanView extends TextFileView {
         if (!this.board.settings) this.board.settings = {};
         if (!this.board.settings.dateTrigger) this.board.settings.dateTrigger = this.plugin.settings.dateTrigger;
         if (!this.board.settings.dateFormat) this.board.settings.dateFormat = this.plugin.settings.dateFormat;
+        if (!this.board.settings.priorities && this.plugin.settings.defaultPriorities && this.plugin.settings.defaultPriorities.length > 0) {
+            this.board.settings.priorities = [...this.plugin.settings.defaultPriorities];
+        }
         
         if (clear) {
             this.editingCardId = null;
@@ -66,6 +69,18 @@ export class KanbanView extends TextFileView {
         if (!newBoard.settings) newBoard.settings = {};
         if (!newBoard.settings.dateTrigger) newBoard.settings.dateTrigger = this.plugin.settings.dateTrigger;
         if (!newBoard.settings.dateFormat) newBoard.settings.dateFormat = this.plugin.settings.dateFormat;
+
+        if (this.plugin.settings.autoGroupByPriority) {
+            const sortLanesRecursively = (lanes: KanbanLane[]) => {
+                for (const lane of lanes) {
+                    lane.cards.sort((a, b) => this.getPriorityRank(a.priority) - this.getPriorityRank(b.priority));
+                    if (lane.subLanes) {
+                        sortLanesRecursively(lane.subLanes);
+                    }
+                }
+            };
+            sortLanesRecursively(newBoard.lanes);
+        }
         
         this.board = newBoard;
         this.requestSave();
@@ -219,7 +234,32 @@ export class KanbanView extends TextFileView {
                     ? lane.cards.length
                     : parseInt(afterElement.dataset.index || "0");
 
-                this.updateBoard(moveCard({ ...this.board }, cardId, lane.id, index));
+                const newBoard = moveCard({ ...this.board }, cardId, lane.id, index);
+                
+                if (this.plugin.settings.autoGroupByPriority) {
+                    const targetLane = this.findLaneRecursively(newBoard.lanes, lane.id);
+                    if (targetLane) {
+                        let isSorted = true;
+                        for (let i = 0; i < targetLane.cards.length - 1; i++) {
+                            const cardA = targetLane.cards[i];
+                            const cardB = targetLane.cards[i+1];
+                            if (cardA && cardB) {
+                                const rankA = this.getPriorityRank(cardA.priority);
+                                const rankB = this.getPriorityRank(cardB.priority);
+                                if (rankA > rankB) {
+                                    isSorted = false;
+                                    break;
+                                }
+                            }
+                        }
+                        if (!isSorted) {
+                            new Notice("Cannot move card to a different priority group");
+                            return; // Abort the move
+                        }
+                    }
+                }
+
+                this.updateBoard(newBoard);
             }
         });
 
@@ -355,7 +395,53 @@ export class KanbanView extends TextFileView {
 
                     menu.addSeparator();
 
-                    // Group 2: Duplicate, Archive, Delete
+                    // Group 2: Priority
+                    if (this.board?.settings?.priorities && this.board.settings.priorities.length > 0) {
+                        const priorities = this.board.settings.priorities;
+                        
+                        menu.addItem((item) => {
+                            item.setIcon("lucide-flag")
+                                .setTitle("Set priority");
+                                
+                            const submenu = (item as unknown as { setSubmenu: () => Menu }).setSubmenu();
+                            
+                            if (card.priority) {
+                                submenu.addItem((subItem) => {
+                                    subItem.setTitle("Clear priority")
+                                        .setIcon("lucide-x")
+                                        .onClick(() => {
+                                            if (this.board) {
+                                                card.priority = undefined;
+                                                this.updateBoard({ ...this.board });
+                                            }
+                                        });
+                                });
+                                submenu.addSeparator();
+                            }
+                            
+                            priorities.forEach(p => {
+                                submenu.addItem((subItem) => {
+                                    subItem.setTitle(p.name)
+                                        .setChecked(card.priority === p.name)
+                                        .onClick(() => {
+                                            if (this.board) {
+                                                card.priority = p.name;
+                                                this.updateBoard({ ...this.board });
+                                            }
+                                        });
+                                    
+                                    const iconEl = (subItem as unknown as { iconEl: HTMLElement | undefined }).iconEl;
+                                    if (iconEl) {
+                                        iconEl.empty();
+                                        iconEl.createDiv({ attr: { style: `width: 12px; height: 12px; border-radius: 50%; background-color: ${p.color};` } });
+                                    }
+                                });
+                            });
+                        });
+                        menu.addSeparator();
+                    }
+
+                    // Group 3: Duplicate, Archive, Delete
                     menu.addItem((item) => {
                         item.setIcon("lucide-copy")
                             .setTitle("Duplicate card")
@@ -527,7 +613,20 @@ export class KanbanView extends TextFileView {
 
                 const save = () => {
                     if (this.board) {
-                        let valueToSave = textarea.value;
+                        let valueToSave = textarea.value.trim();
+
+                        if (!valueToSave) {
+                            const removeCardRecursively = (lanes: KanbanLane[]) => {
+                                for (const l of lanes) {
+                                    l.cards = l.cards.filter(c => c.id !== card.id);
+                                    if (l.subLanes) removeCardRecursively(l.subLanes);
+                                }
+                            };
+                            removeCardRecursively(this.board.lanes);
+                            this.editingCardId = null;
+                            this.updateBoard({ ...this.board });
+                            return;
+                        }
 
                         // Date Replacements
                         const df = this.plugin.settings.dateFormat || 'YYYY-MM-DD';
@@ -562,8 +661,20 @@ export class KanbanView extends TextFileView {
                         e.preventDefault();
                         textarea.blur();
                     } else if (e.key === 'Escape') {
-                        this.editingCardId = null;
-                        this.render();
+                        if (!textarea.value.trim() && !card.content.trim() && this.board) {
+                            const removeCardRecursively = (lanes: KanbanLane[]) => {
+                                for (const l of lanes) {
+                                    l.cards = l.cards.filter(c => c.id !== card.id);
+                                    if (l.subLanes) removeCardRecursively(l.subLanes);
+                                }
+                            };
+                            removeCardRecursively(this.board.lanes);
+                            this.editingCardId = null;
+                            this.updateBoard({ ...this.board });
+                        } else {
+                            this.editingCardId = null;
+                            this.render();
+                        }
                     }
                 });
             } else {
@@ -601,32 +712,48 @@ export class KanbanView extends TextFileView {
                         });
                     });
 
-                if (card.date) {
-                    const dateContainer = cardEl.createDiv({ cls: 'kanban-card-date' });
-                    dateContainer.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        this.showDatePicker(card);
-                    });
+                // Render optional Priority and Date below content, right-aligned
+                if (card.priority || card.date) {
+                    const metaContainer = cardEl.createDiv({ cls: 'kanban-card-meta-container', attr: { style: 'display: flex; justify-content: flex-end; align-items: center; gap: 8px;' } });
                     
-                    let dateText = card.date;
-                    if (this.plugin.settings.showRelativeDate) {
-                        const m = window.moment(card.date, 'YYYY-MM-DD');
-                        if (m.isValid()) {
-                            dateText = m.fromNow();
+                    if (card.priority && this.board?.settings?.priorities) {
+                        const pDef = this.board.settings.priorities.find(p => p.name === card.priority);
+                        if (pDef) {
+                            metaContainer.createSpan({
+                                cls: 'kanban-priority-badge',
+                                text: pDef.name,
+                                attr: { style: `background-color: ${pDef.color}; color: ${this.getContrastYIQ(pDef.color)}; padding: 2px 6px; border-radius: 10px; font-size: 0.75em; font-weight: bold; display: inline-block; line-height: 1;` }
+                            });
                         }
                     }
-                    
-                    if (this.plugin.settings.linkDateToDailyNote) {
-                        const link = dateContainer.createEl('a', {
-                            cls: 'internal-link kanban-card-date-link',
-                            text: dateText,
-                            attr: { 'data-href': card.date }
-                        });
-                        link.addEventListener('click', (e) => {
+
+                    if (card.date) {
+                        const dateContainer = metaContainer.createDiv({ cls: 'kanban-card-date', attr: { style: 'font-size: 0.85em; opacity: 0.8; line-height: 1;' } });
+                        dateContainer.addEventListener('click', (e) => {
                             e.stopPropagation();
-                            void this.app.workspace.openLinkText(card.date!, this.file?.path || "", e.ctrlKey || e.metaKey || e.button === 1);                            });
-                    } else {
-                        dateContainer.createSpan({ text: dateText });
+                            this.showDatePicker(card);
+                        });
+                        
+                        let dateText = card.date;
+                        if (this.plugin.settings.showRelativeDate) {
+                            const m = window.moment(card.date, 'YYYY-MM-DD');
+                            if (m.isValid()) {
+                                dateText = m.fromNow();
+                            }
+                        }
+                        
+                        if (this.plugin.settings.linkDateToDailyNote) {
+                            const link = dateContainer.createEl('a', {
+                                cls: 'internal-link kanban-card-date-link',
+                                text: dateText,
+                                attr: { 'data-href': card.date }
+                            });
+                            link.addEventListener('click', (e) => {
+                                e.stopPropagation();
+                                void this.app.workspace.openLinkText(card.date!, this.file?.path || "", e.ctrlKey || e.metaKey || e.button === 1);                            });
+                        } else {
+                            dateContainer.createSpan({ text: dateText });
+                        }
                     }
                 }
 
@@ -677,6 +804,63 @@ export class KanbanView extends TextFileView {
                 this.updateBoard({ ...this.board });
             }
         });
+    }
+
+    private getPriorityRank(priorityName?: string): number {
+        if (!priorityName) return 0; // No priority always at the top
+        const priorities = this.board?.settings?.priorities || [];
+        const index = priorities.findIndex(p => p.name === priorityName);
+        return index === -1 ? 0 : index + 1; // 1-based index to be greater than no-priority
+    }
+
+    public enforcePriorityGrouping() {
+        if (!this.board || !this.plugin.settings.autoGroupByPriority) return;
+        this.updateBoard({ ...this.board });
+    }
+
+    private findLaneRecursively(lanes: KanbanLane[], laneId: string): KanbanLane | undefined {
+        for (const lane of lanes) {
+            if (lane.id === laneId) return lane;
+            if (lane.subLanes) {
+                const found = this.findLaneRecursively(lane.subLanes, laneId);
+                if (found) return found;
+            }
+        }
+        return undefined;
+    }
+
+    private getContrastYIQ(color: string) {        // Native web platform trick to convert any valid CSS color name to hex
+        const ctx = document.createElement('canvas').getContext('2d');
+        if (ctx) {
+            ctx.fillStyle = color;
+            color = ctx.fillStyle; // this natively converts 'red' to '#ff0000'
+        }
+
+        let hexcolor = color.replace("#", "");
+        
+        // Handle potential rgb/rgba returns (though fillStyle usually returns hex)
+        if (hexcolor.startsWith('rgb')) {
+            const match = hexcolor.match(/\d+/g);
+            if (match && match.length >= 3 && match[0] && match[1] && match[2]) {
+                const r = parseInt(match[0], 10);
+                const g = parseInt(match[1], 10);
+                const b = parseInt(match[2], 10);
+                const yiq = ((r*299)+(g*587)+(b*114))/1000;
+                return (yiq >= 128) ? 'black' : 'white';
+            }
+        }
+
+        if (hexcolor.length === 3) {
+            hexcolor = hexcolor.substring(0, 1) + hexcolor.substring(0, 1) + 
+                       hexcolor.substring(1, 2) + hexcolor.substring(1, 2) + 
+                       hexcolor.substring(2, 3) + hexcolor.substring(2, 3);
+        }
+        
+        const r = parseInt(hexcolor.substring(0,2),16) || 0;
+        const g = parseInt(hexcolor.substring(2,4),16) || 0;
+        const b = parseInt(hexcolor.substring(4,6),16) || 0;
+        const yiq = ((r*299)+(g*587)+(b*114))/1000;
+        return (yiq >= 128) ? 'black' : 'white';
     }
 
     private getDragAfterElement(container: HTMLElement, y: number): HTMLElement | null {
@@ -909,6 +1093,33 @@ class BoardSettingsModal extends Modal {
                         this.board.lanes = newLanes;
                     });
                 text.inputEl.rows = 8;
+                text.inputEl.addClass('kanban-settings-textarea');
+            });
+
+        new Setting(contentEl)
+            .setName('Priorities')
+            .setDesc('Configure the priorities for this board (one per line)')
+            .addTextArea(text => {
+                const prioritiesStr = (this.board.settings?.priorities || []).map(p => `${p.name},${p.color}`).join('\n');
+                text.setPlaceholder('High, red')
+                    .setValue(prioritiesStr)
+                    .onChange((value) => {
+                        if (!this.board.settings) this.board.settings = {};
+                        
+                        const lines = value.split('\n').map(l => l.trim()).filter(l => l !== '');
+                        if (lines.length === 0) {
+                            this.board.settings.priorities = undefined;
+                        } else {
+                            this.board.settings.priorities = lines.map(line => {
+                                const parts = line.split(',');
+                                return {
+                                    name: parts[0] ? parts[0].trim() : 'Unknown',
+                                    color: parts[1] ? parts[1].trim() : '#888888'
+                                };
+                            });
+                        }
+                    });
+                text.inputEl.rows = 4;
                 text.inputEl.addClass('kanban-settings-textarea');
             });
 

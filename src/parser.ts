@@ -1,7 +1,7 @@
 import { fromMarkdown } from 'mdast-util-from-markdown';
 import { Root, ListItem } from 'mdast';
 import { toString } from 'mdast-util-to-string';
-import { KanbanBoard, KanbanLane, KanbanCard } from './types';
+import { KanbanBoard, KanbanLane, KanbanCard, KanbanPriority } from './types';
 import { parseYaml, stringifyYaml } from 'obsidian';
 
 export class MarkdownParser {
@@ -24,12 +24,22 @@ export class MarkdownParser {
                     dateTrigger?: string;
                     dateFormat?: string;
                     title?: string;
+                    priorities?: string[];
                 };
                 board.settings = {
                     lanes: yaml.lanes,
                     dateTrigger: yaml.dateTrigger,
                     dateFormat: yaml.dateFormat
                 };
+                if (yaml.priorities) {
+                    board.settings.priorities = yaml.priorities.map(p => {
+                        const parts = p.split(',');
+                        return {
+                            name: parts[0] ? parts[0].trim() : 'Unknown',
+                            color: parts[1] ? parts[1].trim() : '#888888'
+                        };
+                    });
+                }
                 if (yaml.title) board.title = yaml.title;
             } catch (e) {
                 console.error("Error parsing kanban frontmatter", e);
@@ -138,6 +148,21 @@ export class MarkdownParser {
             return '';
         }).trim();
 
+        // Extract Priority
+        let priority: string | undefined = undefined;
+        if (board.settings?.priorities) {
+            for (const p of board.settings.priorities) {
+                // look for #{priorityName}
+                const pRegex = new RegExp(`(^|\\s)#${p.name}(\\s|$)`, 'i');
+                if (pRegex.test(content)) {
+                    priority = p.name;
+                    // remove it from the raw content so we can render it cleanly
+                    content = content.replace(pRegex, ' ').trim();
+                    break;
+                }
+            }
+        }
+
         // Re-align indentation for inner elements
         const lines = content.split('\n');
         if (lines.length > 1) {
@@ -165,8 +190,9 @@ export class MarkdownParser {
 
         return {
             id: Math.random().toString(36).substring(2, 11),
-            content: content.trimEnd(),
-            date: date
+            content: content.trim(),
+            date: date,
+            priority: priority
         };
     }
 
@@ -192,6 +218,9 @@ export class MarkdownParser {
         }
         if (board.settings?.dateTrigger) yaml.dateTrigger = board.settings.dateTrigger;
         if (board.settings?.dateFormat) yaml.dateFormat = board.settings.dateFormat;
+        if (board.settings?.priorities) {
+            yaml.priorities = board.settings.priorities.map((p: KanbanPriority) => `${p.name},${p.color}`);
+        }
         
         markdown += stringifyYaml(yaml);
         markdown += '---\n\n';
@@ -206,6 +235,14 @@ export class MarkdownParser {
             let res = `${'#'.repeat(depth)} ${lane.title}\n\n`;
             for (const card of lane.cards) {
                 let cardContent = card.content;
+                
+                // re-insert priority tag
+                if (card.priority) {
+                    const firstLine = cardContent.split('\n')[0];
+                    const rest = cardContent.split('\n').slice(1).join('\n');
+                    cardContent = firstLine + ` #${card.priority}` + (rest ? '\n' + rest : '');
+                }
+
                 if (card.date) {
                     const firstLine = cardContent.split('\n')[0];
                     const rest = cardContent.split('\n').slice(1).join('\n');

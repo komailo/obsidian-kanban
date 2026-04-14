@@ -1,8 +1,11 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import KanbanPlugin from "./main";
+import { KanbanPriority } from "./types";
 
 export interface KanbanSettings {
 	defaultLanes: string[];
+	defaultPriorities: KanbanPriority[];
+	autoGroupByPriority: boolean;
 	newCardInsertionMethod: 'append' | 'prepend';
 	newLineTrigger: 'enter' | 'shift-enter';
 	hideTagsInTitle: boolean;
@@ -20,6 +23,13 @@ export interface KanbanSettings {
 
 export const DEFAULT_SETTINGS: KanbanSettings = {
 	defaultLanes: ['Backlog', 'Todo', 'In Progress', 'Done'],
+	defaultPriorities: [
+		{ name: 'P1', color: 'red' },
+		{ name: 'P2', color: 'orange' },
+		{ name: 'P3', color: 'yellow' },
+		{ name: 'P4', color: 'blue' },
+	],
+	autoGroupByPriority: false,
 	newCardInsertionMethod: 'append',
 	newLineTrigger: 'shift-enter',
 	hideTagsInTitle: false,
@@ -61,6 +71,43 @@ export class KanbanSettingTab extends PluginSettingTab {
 				.onChange(async (value) => {
 					this.plugin.settings.defaultLanes = value.split('\n').filter(l => l.trim() !== '');
 					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Default priorities')
+			.setDesc('Default priorities for new kanban boards (one per line)')
+			.addTextArea(text => text
+				.setPlaceholder('High, red')
+				.setValue(this.plugin.settings.defaultPriorities.map(p => `${p.name},${p.color}`).join('\n'))
+				.onChange(async (value) => {
+					this.plugin.settings.defaultPriorities = value.split('\n')
+						.map(line => line.trim())
+						.filter(line => line !== '')
+						.map(line => {
+							const parts = line.split(',');
+							return {
+								name: parts[0] ? parts[0].trim() : 'Unknown',
+								color: parts[1] ? parts[1].trim() : '#888888'
+							};
+						});
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Auto group by priority')
+			.setDesc('Automatically group cards by priority and prevent dropping into the wrong priority group')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.autoGroupByPriority)
+				.onChange(async (value) => {
+					this.plugin.settings.autoGroupByPriority = value;
+					await this.plugin.saveSettings();
+					
+					// Re-render open boards
+					this.app.workspace.getLeavesOfType('kanban-view').forEach(leaf => {
+					    if (leaf.view && 'enforcePriorityGrouping' in leaf.view) {
+					        (leaf.view as unknown as { enforcePriorityGrouping: () => void }).enforcePriorityGrouping();
+					    }
+					});
 				}));
 
 		new Setting(containerEl)
