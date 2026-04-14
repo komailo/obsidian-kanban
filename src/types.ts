@@ -3,6 +3,7 @@ export interface KanbanCard {
     content: string; // The raw markdown content of the card
     metadata?: Record<string, unknown>;
     date?: string; // Optional date associated with the card
+    priority?: string; // Optional priority name
 }
 
 export interface KanbanLane {
@@ -12,10 +13,16 @@ export interface KanbanLane {
     subLanes?: KanbanLane[];
 }
 
+export interface KanbanPriority {
+    name: string;
+    color: string;
+}
+
 export interface KanbanBoardSettings {
     lanes?: string[]; // The defined lane titles for this board, potentially with hierarchy
     dateTrigger?: string;
     dateFormat?: string;
+    priorities?: KanbanPriority[];
 }
 
 export interface KanbanBoard {

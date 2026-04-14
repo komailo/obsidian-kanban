@@ -25,7 +25,8 @@ Create and manage your projects with a simple, intuitive drag-and-drop interface
 
 You can create sub-swimlanes in two ways:
 
-1.  **In Settings**: Go to the board settings (gear icon) and use a `- ` prefix for any lane you want to nest under the previous one. For example:
+1. **In Settings**: Go to the board settings (gear icon) and use a `-` prefix for any lane you want to nest under the previous one. For example:
+
     ```text
     Backlog
     Todo
@@ -34,8 +35,17 @@ You can create sub-swimlanes in two ways:
     - Slow
     Done
     ```
-2.  **In Markdown**: Use different heading levels. H2 headings create top-level lanes, and H3+ headings create sub-lanes nested under the preceding H2.
 
+2. **In Markdown**: Use different heading levels. H2 headings create top-level lanes, and H3+ headings create sub-lanes nested under the preceding H2.
+
+### Managing Priorities
+
+You can configure global default priorities in the Obsidian settings, or customize them per-board via the Board Settings menu (gear icon).
+
+1. **Format:** Define priorities as a list, one per line, using the format `Name, Color`. (e.g., `High, red`, `P1, #ff0000`, `Critical, rgb(255,0,0)`).
+2. **Assigning:** Right-click any card to open the context menu and select a priority to assign it. It will render as a colorful badge on the card.
+3. **Auto-Grouping:** Enable the **Auto group by priority** setting to strictly enforce priority sorting within lanes. Drag-and-drop will intelligently reject moves that violate the sorting order, ensuring your highest-priority tasks are always at the top.
+4. **Deleting Priorities:** If you remove a priority from your settings, data is preserved! The card will retain a standard markdown tag (e.g., `#P1`), and will simply be grouped as "unassigned" if auto-grouping is enabled. Add the priority back to your settings, and the board will instantly re-render the badges and re-sort them automatically.
 
 ## Screen Shots
 
@@ -46,3 +56,9 @@ You can create sub-swimlanes in two ways:
 ### Sub-swimlanes
 
 ![screenshot-board-with-sub-swim-lanes](docs/assets/screenshot-board-with-sub-swim-lanes.png)
+
+### Priorities
+
+<!-- TODO: Add a screenshot of the new priority badges and right-click menu here -->
+
+![screenshot-priorities](docs/assets/screenshot-priorities-with-grouping.png)
