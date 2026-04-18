@@ -57,6 +57,7 @@ This repository is dedicated to the development of a modern, feature-rich Kanban
 3. **Type Safety**: Maintain strict TypeScript typing (`"strict": true`).
 4. **Idempotency**: Write idempotent code paths so reload/unload doesn't leak listeners or intervals. Use `this.register*` helpers for everything that needs cleanup.
 5. **UI/UX**: Prefer sentence case. Use **bold** for literal UI labels. Use arrow notation for navigation: **Settings → Community plugins**.
+6. **Feature Flags**: Document any new feature flags or major configuration options in `README.md` under the **Configuration & Feature Flags** section.
 
 ## Manifest & Releases (`manifest.json`)
 

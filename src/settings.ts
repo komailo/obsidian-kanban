@@ -16,6 +16,7 @@ export interface KanbanSettings {
 	showRelativeDate: boolean;
 	newNoteTemplate: string;
 	showLinkedPageMetadata: boolean;
+	showAddCardInHeader: boolean;
 	appendArchiveDate: boolean;
 	archiveDateFormat: string;
 	archiveLinkedNotes: boolean;
@@ -40,6 +41,7 @@ export const DEFAULT_SETTINGS: KanbanSettings = {
 	showRelativeDate: true,
 	newNoteTemplate: '',
 	showLinkedPageMetadata: false,
+	showAddCardInHeader: true,
 	appendArchiveDate: false,
 	archiveDateFormat: 'YYYY-MM-DD',
 	archiveLinkedNotes: false,
@@ -101,13 +103,7 @@ export class KanbanSettingTab extends PluginSettingTab {
 				.onChange(async (value) => {
 					this.plugin.settings.autoGroupByPriority = value;
 					await this.plugin.saveSettings();
-					
-					// Re-render open boards
-					this.app.workspace.getLeavesOfType('kanban-view').forEach(leaf => {
-					    if (leaf.view && 'enforcePriorityGrouping' in leaf.view) {
-					        (leaf.view as unknown as { enforcePriorityGrouping: () => void }).enforcePriorityGrouping();
-					    }
-					});
+					this.refreshViews();
 				}));
 
 		new Setting(containerEl)
@@ -133,6 +129,7 @@ export class KanbanSettingTab extends PluginSettingTab {
 				.onChange(async (value) => {
 					this.plugin.settings.hideTagsInTitle = value;
 					await this.plugin.saveSettings();
+					this.refreshViews();
 				}));
 
 		new Setting(containerEl)
@@ -143,6 +140,18 @@ export class KanbanSettingTab extends PluginSettingTab {
 				.onChange(async (value) => {
 					this.plugin.settings.showLinkedPageMetadata = value;
 					await this.plugin.saveSettings();
+					this.refreshViews();
+				}));
+
+		new Setting(containerEl)
+			.setName('Show add card button in header')
+			.setDesc('Move the "+" button to the lane header and hide the "+ Add a card" button at the bottom')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.showAddCardInHeader)
+				.onChange(async (value) => {
+					this.plugin.settings.showAddCardInHeader = value;
+					await this.plugin.saveSettings();
+					this.refreshViews();
 				}));
 
 		new Setting(containerEl)
@@ -264,5 +273,13 @@ export class KanbanSettingTab extends PluginSettingTab {
 					this.plugin.settings.archiveDateFormat = value;
 					await this.plugin.saveSettings();
 				}));
+	}
+
+	private refreshViews() {
+		this.app.workspace.getLeavesOfType('kanban-view').forEach(leaf => {
+			if (leaf.view && 'render' in leaf.view && typeof leaf.view.render === 'function') {
+				leaf.view.render();
+			}
+		});
 	}
 }

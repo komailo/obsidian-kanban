@@ -90,6 +90,26 @@
     margin-bottom: 8px;
 }
 
+.kanban-lane-header-right {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.kanban-lane-add-icon {
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: var(--text-muted);
+    font-size: 1.2em;
+    line-height: 1;
+}
+
+.kanban-lane-add-icon:hover {
+    background-color: var(--background-modifier-hover);
+    color: var(--text-normal);
+}
+
 .kanban-lane-title {
     font-weight: 600;
     font-size: 0.9em;

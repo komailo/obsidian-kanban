@@ -47,6 +47,15 @@ You can configure global default priorities in the Obsidian settings, or customi
 3. **Auto-Grouping:** Enable the **Auto group by priority** setting to strictly enforce priority sorting within lanes. Drag-and-drop will intelligently reject moves that violate the sorting order, ensuring your highest-priority tasks are always at the top.
 4. **Deleting Priorities:** If you remove a priority from your settings, data is preserved! The card will retain a standard markdown tag (e.g., `#P1`), and will simply be grouped as "unassigned" if auto-grouping is enabled. Add the priority back to your settings, and the board will instantly re-render the badges and re-sort them automatically.
 
+## Configuration & Feature Flags
+
+The plugin includes several configuration options and feature flags to customize your experience. These can be found in the Obsidian settings under **Community plugins → Obsidian Kanban**.
+
+- **Show add card button in header**: (Enabled by default) Moves the `+` button to the lane header and hides the `+ Add a card` button at the bottom of lanes. This saves vertical space, especially in long lanes.
+- **Auto group by priority**: Automatically sorts cards by their assigned priority within each lane.
+- **Hide tags in card titles**: Visually removes hashtags from card titles while keeping them in the underlying markdown.
+- **Show linked page metadata**: Displays frontmatter metadata from any notes linked in a card.
+
 ## Screen Shots
 
 ### Main Board
