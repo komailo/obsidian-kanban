@@ -24,7 +24,7 @@ export default defineConfig(
 		},
 	},
 	{
-		files: ["package.json"],
+		files: ["**/package.json"],
 		rules: {
 			"obsidianmd/no-plugin-as-component": "off",
 			"obsidianmd/no-unsupported-api": "off",
