@@ -18,9 +18,15 @@ export default defineConfig(
 		},
 	},
 	...obsidianmd.configs.recommended,
+	{
+		rules: {
+			"obsidianmd/prefer-active-doc": "off",
+		},
+	},
 	globalIgnores([
 		"node_modules",
 		"dist",
+		"package.json",
 		"esbuild.config.mjs",
 		"eslint.config.js",
 		"version-bump.mjs",
