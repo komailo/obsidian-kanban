@@ -58,6 +58,7 @@ This repository is dedicated to the development of a modern, feature-rich Kanban
 4. **Idempotency**: Write idempotent code paths so reload/unload doesn't leak listeners or intervals. Use `this.register*` helpers for everything that needs cleanup.
 5. **UI/UX**: Prefer sentence case. Use **bold** for literal UI labels. Use arrow notation for navigation: **Settings → Community plugins**.
 6. **Feature Flags**: Document any new feature flags or major configuration options in `README.md` under the **Configuration & Feature Flags** section.
+7. **Pre-commit Verification**: ALWAYS run `task check` (or `npm run lint && npm run build`) before committing or pushing any changes to ensure the project remains in a valid state and follows all architectural and linting rules.
 
 ## Manifest & Releases (`manifest.json`)
 
