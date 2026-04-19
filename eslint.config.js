@@ -23,10 +23,19 @@ export default defineConfig(
 			"obsidianmd/prefer-active-doc": "off",
 		},
 	},
+	{
+		files: ["package.json"],
+		rules: {
+			"obsidianmd/no-plugin-as-component": "off",
+			"obsidianmd/no-unsupported-api": "off",
+			"obsidianmd/no-view-references-in-plugin": "off",
+			"obsidianmd/prefer-file-manager-trash-file": "off",
+			"obsidianmd/prefer-instanceof": "off",
+		},
+	},
 	globalIgnores([
 		"node_modules",
 		"dist",
-		"package.json",
 		"esbuild.config.mjs",
 		"eslint.config.js",
 		"version-bump.mjs",
