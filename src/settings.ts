@@ -1,6 +1,7 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import KanbanPlugin from "./main";
 import { KanbanPriority } from "./types";
+import { KanbanView } from "./view";
 
 export interface KanbanSettings {
 	defaultLanes: string[];
@@ -144,8 +145,8 @@ export class KanbanSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Show add card button in header')
-			.setDesc('Move the "+" button to the lane header and hide the "+ Add a card" button at the bottom')
+			.setName('Add card button in header')
+			.setDesc('Adds a button to the header for creating new cards')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.showAddCardInHeader)
 				.onChange(async (value) => {
@@ -277,7 +278,7 @@ export class KanbanSettingTab extends PluginSettingTab {
 
 	private refreshViews() {
 		this.app.workspace.getLeavesOfType('kanban-view').forEach(leaf => {
-			if (leaf.view && 'render' in leaf.view && typeof leaf.view.render === 'function') {
+			if (leaf.view instanceof KanbanView) {
 				leaf.view.render();
 			}
 		});

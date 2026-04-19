@@ -51,7 +51,7 @@ You can configure global default priorities in the Obsidian settings, or customi
 
 The plugin includes several configuration options and feature flags to customize your experience. These can be found in the Obsidian settings under **Community plugins → Obsidian Kanban**.
 
-- **Show add card button in header**: (Enabled by default) Moves the `+` button to the lane header and hides the `+ Add a card` button at the bottom of lanes. This saves vertical space, especially in long lanes.
+- **Add card button in header**: (Enabled by default) Adds a button to the header for creating new cards. This saves vertical space, especially in long lanes.
 - **Auto group by priority**: Automatically sorts cards by their assigned priority within each lane.
 - **Hide tags in card titles**: Visually removes hashtags from card titles while keeping them in the underlying markdown.
 - **Show linked page metadata**: Displays frontmatter metadata from any notes linked in a card.
