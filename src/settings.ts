@@ -1,6 +1,7 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import KanbanPlugin from "./main";
 import { KanbanPriority } from "./types";
+import { KanbanView } from "./view";
 
 export interface KanbanSettings {
 	defaultLanes: string[];
@@ -16,6 +17,7 @@ export interface KanbanSettings {
 	showRelativeDate: boolean;
 	newNoteTemplate: string;
 	showLinkedPageMetadata: boolean;
+	showAddCardInHeader: boolean;
 	appendArchiveDate: boolean;
 	archiveDateFormat: string;
 	archiveLinkedNotes: boolean;
@@ -40,6 +42,7 @@ export const DEFAULT_SETTINGS: KanbanSettings = {
 	showRelativeDate: true,
 	newNoteTemplate: '',
 	showLinkedPageMetadata: false,
+	showAddCardInHeader: true,
 	appendArchiveDate: false,
 	archiveDateFormat: 'YYYY-MM-DD',
 	archiveLinkedNotes: false,
@@ -101,13 +104,7 @@ export class KanbanSettingTab extends PluginSettingTab {
 				.onChange(async (value) => {
 					this.plugin.settings.autoGroupByPriority = value;
 					await this.plugin.saveSettings();
-					
-					// Re-render open boards
-					this.app.workspace.getLeavesOfType('kanban-view').forEach(leaf => {
-					    if (leaf.view && 'enforcePriorityGrouping' in leaf.view) {
-					        (leaf.view as unknown as { enforcePriorityGrouping: () => void }).enforcePriorityGrouping();
-					    }
-					});
+					this.refreshViews();
 				}));
 
 		new Setting(containerEl)
@@ -133,6 +130,7 @@ export class KanbanSettingTab extends PluginSettingTab {
 				.onChange(async (value) => {
 					this.plugin.settings.hideTagsInTitle = value;
 					await this.plugin.saveSettings();
+					this.refreshViews();
 				}));
 
 		new Setting(containerEl)
@@ -143,6 +141,18 @@ export class KanbanSettingTab extends PluginSettingTab {
 				.onChange(async (value) => {
 					this.plugin.settings.showLinkedPageMetadata = value;
 					await this.plugin.saveSettings();
+					this.refreshViews();
+				}));
+
+		new Setting(containerEl)
+			.setName('Add card button in header')
+			.setDesc('Adds a button to the header for creating new cards')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.showAddCardInHeader)
+				.onChange(async (value) => {
+					this.plugin.settings.showAddCardInHeader = value;
+					await this.plugin.saveSettings();
+					this.refreshViews();
 				}));
 
 		new Setting(containerEl)
@@ -264,5 +274,13 @@ export class KanbanSettingTab extends PluginSettingTab {
 					this.plugin.settings.archiveDateFormat = value;
 					await this.plugin.saveSettings();
 				}));
+	}
+
+	private refreshViews() {
+		this.app.workspace.getLeavesOfType('kanban-view').forEach(leaf => {
+			if (leaf.view instanceof KanbanView) {
+				leaf.view.render();
+			}
+		});
 	}
 }

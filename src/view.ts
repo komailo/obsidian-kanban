@@ -294,7 +294,29 @@ export class KanbanView extends TextFileView {
                 this.render();
             });
 
-            const menuBtn = laneHeader.createDiv({ cls: 'kanban-lane-menu-btn', text: '⋮' });
+            const rightSideHeader = laneHeader.createDiv({ cls: 'kanban-lane-header-right' });
+
+            if (this.plugin.settings.showAddCardInHeader) {
+                const addIcon = rightSideHeader.createDiv({ cls: 'kanban-lane-add-icon', text: '+' });
+                addIcon.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (this.board) {
+                        const newCard = {
+                            id: Math.random().toString(36).substring(2, 11),
+                            content: ""
+                        };
+                        if (this.plugin.settings.newCardInsertionMethod === 'prepend') {
+                            lane.cards.unshift(newCard);
+                        } else {
+                            lane.cards.push(newCard);
+                        }
+                        this.editingCardId = newCard.id;
+                        this.updateBoard({ ...this.board });
+                    }
+                });
+            }
+
+            const menuBtn = rightSideHeader.createDiv({ cls: 'kanban-lane-menu-btn', text: '⋮' });
             menuBtn.addEventListener('click', (e) => {
                 const menu = new Menu();
                 menu.addItem((item) =>
@@ -324,16 +346,16 @@ export class KanbanView extends TextFileView {
                 }
                 menu.showAtMouseEvent(e);
             });
-        }
 
-        const wipMatch = lane.title.match(/\((\d+)\)$/);
-        const wipLimit = wipMatch && wipMatch[1] ? parseInt(wipMatch[1], 10) : null;
-        const isOverLimit = wipLimit !== null && lane.cards.length > wipLimit;
+            const wipMatch = lane.title.match(/\((\d+)\)$/);
+            const wipLimit = wipMatch && wipMatch[1] ? parseInt(wipMatch[1], 10) : null;
+            const isOverLimit = wipLimit !== null && lane.cards.length > wipLimit;
 
-        const countEl = laneHeader.createDiv({ cls: 'kanban-lane-count' });
-        countEl.createSpan({ text: lane.cards.length.toString(), cls: isOverLimit ? 'kanban-wip-over' : '' });
-        if (wipLimit !== null) {
-            countEl.createSpan({ text: ` / ${wipLimit}` });
+            const countEl = rightSideHeader.createDiv({ cls: 'kanban-lane-count' });
+            countEl.createSpan({ text: lane.cards.length.toString(), cls: isOverLimit ? 'kanban-wip-over' : '' });
+            if (wipLimit !== null) {
+                countEl.createSpan({ text: ` / ${wipLimit}` });
+            }
         }
 
         const cardsContainer = laneEl.createDiv({ cls: 'kanban-cards' });
@@ -788,22 +810,24 @@ export class KanbanView extends TextFileView {
             }
         }
 
-        const addCardBtn = laneEl.createDiv({ cls: 'kanban-add-card', text: '+ Add a card' });
-        addCardBtn.addEventListener('click', () => {
-            if (this.board) {
-                const newCard = {
-                    id: Math.random().toString(36).substring(2, 11),
-                    content: ""
-                };
-                if (this.plugin.settings.newCardInsertionMethod === 'prepend') {
-                    lane.cards.unshift(newCard);
-                } else {
-                    lane.cards.push(newCard);
+        if (!this.plugin.settings.showAddCardInHeader) {
+            const addCardBtn = laneEl.createDiv({ cls: 'kanban-add-card', text: '+ Add a card' });
+            addCardBtn.addEventListener('click', () => {
+                if (this.board) {
+                    const newCard = {
+                        id: Math.random().toString(36).substring(2, 11),
+                        content: ""
+                    };
+                    if (this.plugin.settings.newCardInsertionMethod === 'prepend') {
+                        lane.cards.unshift(newCard);
+                    } else {
+                        lane.cards.push(newCard);
+                    }
+                    this.editingCardId = newCard.id;
+                    this.updateBoard({ ...this.board });
                 }
-                this.editingCardId = newCard.id;
-                this.updateBoard({ ...this.board });
-            }
-        });
+            });
+        }
     }
 
     private getPriorityRank(priorityName?: string): number {
